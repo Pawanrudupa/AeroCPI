@@ -1,28 +1,50 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 
 interface DirectionalPlaneCursorProps {
-  containerRef: React.RefObject<HTMLElement>;
+  containerRef: React.RefObject<HTMLElement | null>;
 }
 
 /**
- * Directional plane cursor scoped strictly to hero per DESIGN.md Section 4.
- * Computes rotation angle via Math.atan2(dy, dx) on frame delta.
- * Disables on touch devices and leaves native cursors intact outside.
+ * Directional airplane cursor scoped strictly to the hero section
+ * per DESIGN.md Section 4.
+ *
+ * - Replaces the native cursor with a rotated airplane SVG inside the container.
+ * - Rotation angle computed via Math.atan2(dy, dx) on frame-to-frame mouse delta.
+ * - Adds 'hero-cursor-none' class to the container to hide the native cursor.
+ * - Disabled on touch devices and when prefers-reduced-motion is set.
+ * - Does NOT affect cursors anywhere else (dashboard, forms, nav).
  */
-export const DirectionalPlaneCursor: React.FC<DirectionalPlaneCursorProps> = ({ containerRef }) => {
-  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
-  const [angle, setAngle] = useState<number>(0);
-  const [isVisible, setIsVisible] = useState<boolean>(false);
-  
-  const lastPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+export const DirectionalPlaneCursor: React.FC<DirectionalPlaneCursorProps> = ({
+  containerRef,
+}) => {
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(
+    null,
+  );
+  const [angle, setAngle] = useState(0);
+  const [isVisible, setIsVisible] = useState(false);
+
+  const lastPosRef = useRef({ x: 0, y: 0 });
   const rafRef = useRef<number | null>(null);
 
+  const handleEnter = useCallback(() => {
+    setIsVisible(true);
+    containerRef.current?.classList.add("hero-cursor-none");
+  }, [containerRef]);
+
+  const handleLeave = useCallback(() => {
+    setIsVisible(false);
+    containerRef.current?.classList.remove("hero-cursor-none");
+  }, [containerRef]);
+
   useEffect(() => {
-    // Check if touch device or reduced motion
-    const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    /* Gate: touch device or reduced motion */
+    const isTouch =
+      "ontouchstart" in window || navigator.maxTouchPoints > 0;
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     if (isTouch || prefersReducedMotion) return;
 
     const container = containerRef.current;
@@ -37,11 +59,12 @@ export const DirectionalPlaneCursor: React.FC<DirectionalPlaneCursorProps> = ({ 
         e.clientY <= rect.bottom;
 
       if (!inBounds) {
-        setIsVisible(false);
+        handleLeave();
         return;
       }
 
-      setIsVisible(true);
+      if (!isVisible) handleEnter();
+
       const curX = e.clientX - rect.left;
       const curY = e.clientY - rect.top;
 
@@ -50,11 +73,10 @@ export const DirectionalPlaneCursor: React.FC<DirectionalPlaneCursorProps> = ({ 
           const dx = curX - lastPosRef.current.x;
           const dy = curY - lastPosRef.current.y;
 
-          // Only compute new heading angle if moved significantly (> 3px)
+          /* Only recompute heading if movement exceeds 3px dead zone */
           if (Math.hypot(dx, dy) > 3) {
-            // Standard atan2 returns angle in radians from x-axis; convert to degrees + 90deg offset for upright plane
-            const targetAngle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
-            setAngle(targetAngle);
+            const heading = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+            setAngle(heading);
           }
 
           setPosition({ x: curX, y: curY });
@@ -64,44 +86,47 @@ export const DirectionalPlaneCursor: React.FC<DirectionalPlaneCursorProps> = ({ 
       }
     };
 
-    const handleMouseLeave = () => {
-      setIsVisible(false);
-    };
+    const handleMouseLeaveContainer = () => handleLeave();
 
     window.addEventListener("mousemove", handleMouseMove);
-    container.addEventListener("mouseleave", handleMouseLeave);
+    container.addEventListener("mouseleave", handleMouseLeaveContainer);
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
-      if (container) container.removeEventListener("mouseleave", handleMouseLeave);
+      container.removeEventListener("mouseleave", handleMouseLeaveContainer);
+      container.classList.remove("hero-cursor-none");
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [containerRef]);
+  }, [containerRef, handleEnter, handleLeave, isVisible]);
 
   if (!isVisible || !position) return null;
 
   return (
     <div
-      className="pointer-events-none absolute z-50 transform -translate-x-1/2 -translate-y-1/2 transition-transform duration-75 ease-out"
+      className="pointer-events-none absolute"
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
         transform: `translate(-50%, -50%) rotate(${angle}deg)`,
+        zIndex: 50,
+        willChange: "transform, left, top",
+        transition: "transform 60ms ease-out",
       }}
     >
+      {/* Airplane silhouette pointing upward (0°) — rotated by atan2 heading */}
       <svg
-        width="22"
-        height="22"
+        width="26"
+        height="26"
         viewBox="0 0 24 24"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="text-accent-amber drop-shadow-[0_0_6px_rgba(201,162,39,0.8)]"
+        className="drop-shadow-[0_0_8px_rgba(201,162,39,0.7)]"
       >
         <path
-          d="M12 2L14.5 9H21L17 13.5L18.5 21L12 17L5.5 21L7 13.5L3 9H9.5L12 2Z"
-          fill="currentColor"
+          d="M12 2 L13.5 8 L20 10 L13.5 12 L13.5 19 L12 17 L10.5 19 L10.5 12 L4 10 L10.5 8 Z"
+          fill="#C9A227"
           stroke="#0A0A07"
-          strokeWidth="1"
+          strokeWidth="0.75"
         />
       </svg>
     </div>

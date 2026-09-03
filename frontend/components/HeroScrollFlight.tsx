@@ -11,46 +11,85 @@ interface Checkpoint {
 }
 
 const CHECKPOINTS: Checkpoint[] = [
-  { progress: 0.0, label: "DEL (Indira Gandhi Intl)", status: "TAXI / DEPARTURE [06:00]", price: "₹ 5,100 (T+15 Base)", altitude: "GND" },
-  { progress: 0.45, label: "EN ROUTE (FL360)", status: "CRUISE :: SECTOR RAJASTHAN", price: "₹ 5,600 (Basket Wtd)", altitude: "36,000 FT" },
-  { progress: 0.95, label: "BOM (Chhatrapati Shivaji)", status: "APPROACH / LANDING [08:15]", price: "₹ 6,000 (T+7 Peak)", altitude: "2,500 FT" },
+  {
+    progress: 0.0,
+    label: "DEL (Indira Gandhi Intl)",
+    status: "TAXI / DEPARTURE [06:00]",
+    price: "₹ 5,100 (T+15 Base)",
+    altitude: "GND",
+  },
+  {
+    progress: 0.45,
+    label: "EN ROUTE (FL360)",
+    status: "CRUISE :: SECTOR RAJASTHAN",
+    price: "₹ 5,600 (Basket Wtd)",
+    altitude: "36,000 FT",
+  },
+  {
+    progress: 0.95,
+    label: "BOM (Chhatrapati Shivaji)",
+    status: "APPROACH / LANDING [08:15]",
+    price: "₹ 6,000 (T+7 Peak)",
+    altitude: "2,500 FT",
+  },
 ];
 
 /**
  * Hero scroll-flight interaction per DESIGN.md Section 1.
- * SVG arc path (DEL->BOM), plane icon positioned via getPointAtLength() driven by scroll.
- * Checkpoint telemetry updates informatively as scroll advances.
- * Respects prefers-reduced-motion by rendering a static baseline.
+ *
+ * SVG quadratic Bézier arc (DEL→BOM). A plane icon is positioned along the
+ * path using getPointAtLength(), driven by the page scroll position.
+ * Checkpoint telemetry updates as scroll advances past thresholds.
+ *
+ * How to observe:
+ *   Start at the top of the landing page. Scroll down — the amber aircraft
+ *   on the DEL→BOM arc moves from left (DEL) to right (BOM) along the curve.
+ *   The telemetry readout below the arc updates through three checkpoints:
+ *   "TAXI / DEPARTURE" → "CRUISE :: SECTOR RAJASTHAN" → "APPROACH / LANDING".
  */
 export const HeroScrollFlight: React.FC = () => {
   const pathRef = useRef<SVGPathElement>(null);
-  const [planeCoord, setPlaneCoord] = useState<{ x: number; y: number; angle: number }>({
-    x: 60,
-    y: 190,
-    angle: -25,
-  });
-  const [activeCheckpoint, setActiveCheckpoint] = useState<Checkpoint>(CHECKPOINTS[0]);
-  const [isReducedMotion, setIsReducedMotion] = useState<boolean>(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [planeCoord, setPlaneCoord] = useState<{
+    x: number;
+    y: number;
+    angle: number;
+  }>({ x: 60, y: 190, angle: -25 });
+  const [activeCheckpoint, setActiveCheckpoint] = useState(CHECKPOINTS[0]);
+  const [isReducedMotion, setIsReducedMotion] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
       setIsReducedMotion(true);
       return;
     }
 
     const handleScroll = () => {
-      if (!pathRef.current) return;
+      if (!pathRef.current || !containerRef.current) return;
+
       const path = pathRef.current;
       const pathLength = path.getTotalLength();
 
-      // Scoped scroll: progress across top 600px of scroll
-      const scrollY = window.scrollY;
-      const maxScroll = 600;
-      const rawProgress = Math.min(Math.max(scrollY / maxScroll, 0), 1);
+      /* Calculate progress relative to the hero container's position in viewport.
+         This ensures the scroll-flight works regardless of page length:
+         progress = 0 when the container top is at the viewport top,
+         progress = 1 when the container bottom passes the viewport top. */
+      const rect = containerRef.current.getBoundingClientRect();
+      const containerHeight = rect.height;
+      const scrolledPast = -rect.top; // how far past the top of viewport
+      const scrollRange = containerHeight + window.innerHeight * 0.5;
+      const rawProgress = Math.min(
+        Math.max(scrolledPast / scrollRange, 0),
+        1,
+      );
 
       const currentPoint = path.getPointAtLength(rawProgress * pathLength);
-      // Small delta forward for heading calculation
-      const nextPoint = path.getPointAtLength(Math.min(rawProgress * pathLength + 2, pathLength));
+      const nextPoint = path.getPointAtLength(
+        Math.min(rawProgress * pathLength + 2, pathLength),
+      );
 
       const dx = nextPoint.x - currentPoint.x;
       const dy = nextPoint.y - currentPoint.y;
@@ -62,7 +101,7 @@ export const HeroScrollFlight: React.FC = () => {
         angle: heading,
       });
 
-      // Update active checkpoint
+      /* Update active checkpoint based on progress */
       if (rawProgress < 0.3) {
         setActiveCheckpoint(CHECKPOINTS[0]);
       } else if (rawProgress < 0.75) {
@@ -73,12 +112,15 @@ export const HeroScrollFlight: React.FC = () => {
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
+    handleScroll(); // Initialize position
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   return (
-    <div className="relative w-full border border-line bg-panel p-5 rounded-sm">
+    <div
+      ref={containerRef}
+      className="relative w-full border border-line bg-panel p-5 rounded-sm"
+    >
       <div className="flex items-center justify-between border-b border-line pb-2 mb-4 font-mono text-xs">
         <span className="text-signal-green flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
@@ -95,9 +137,15 @@ export const HeroScrollFlight: React.FC = () => {
           preserveAspectRatio="xMidYMid meet"
         >
           {/* Subtle grid lines */}
-          <line x1="60" y1="20" x2="60" y2="220" stroke="#262316" strokeDasharray="3 3" />
-          <line x1="440" y1="20" x2="440" y2="220" stroke="#262316" strokeDasharray="3 3" />
-          
+          <line
+            x1="60" y1="20" x2="60" y2="220"
+            stroke="#262316" strokeDasharray="3 3"
+          />
+          <line
+            x1="440" y1="20" x2="440" y2="220"
+            stroke="#262316" strokeDasharray="3 3"
+          />
+
           {/* Background Corridor Arc */}
           <path
             d="M 60 190 Q 250 30 440 190"
@@ -119,28 +167,41 @@ export const HeroScrollFlight: React.FC = () => {
 
           {/* Origin Node DEL */}
           <circle cx="60" cy="190" r="5" fill="#7FB86B" />
-          <text x="60" y="215" fill="#E8E4D4" fontSize="11" fontFamily="JetBrains Mono" textAnchor="middle">
+          <text
+            x="60" y="215"
+            fill="#E8E4D4" fontSize="11"
+            fontFamily="JetBrains Mono" textAnchor="middle"
+          >
             DEL
           </text>
 
           {/* Destination Node BOM */}
           <circle cx="440" cy="190" r="5" fill="#C9A227" />
-          <text x="440" y="215" fill="#E8E4D4" fontSize="11" fontFamily="JetBrains Mono" textAnchor="middle">
+          <text
+            x="440" y="215"
+            fill="#E8E4D4" fontSize="11"
+            fontFamily="JetBrains Mono" textAnchor="middle"
+          >
             BOM
           </text>
 
-          {/* Scrubbed Flight Aircraft */}
+          {/* Scrubbed Flight Aircraft — moves along path on scroll */}
           {!isReducedMotion && (
             <g
               transform={`translate(${planeCoord.x}, ${planeCoord.y}) rotate(${planeCoord.angle})`}
             >
+              {/* Airplane silhouette (same as DirectionalPlaneCursor) */}
               <path
-                d="M 0 -10 L 4 -3 L 11 0 L 4 3 L 0 10 L -2 3 L -8 0 L -2 -3 Z"
+                d="M 0 -8 L 1.5 -3 L 8 0 L 1.5 2 L 1 7 L 0 5.5 L -1 7 L -1.5 2 L -8 0 L -1.5 -3 Z"
                 fill="#C9A227"
                 stroke="#0A0A07"
-                strokeWidth="1"
+                strokeWidth="0.75"
               />
-              <circle cx="0" cy="0" r="14" fill="none" stroke="#C9A227" strokeWidth="0.75" strokeOpacity="0.4" />
+              <circle
+                cx="0" cy="0" r="14"
+                fill="none" stroke="#C9A227"
+                strokeWidth="0.75" strokeOpacity="0.35"
+              />
             </g>
           )}
         </svg>
@@ -150,15 +211,21 @@ export const HeroScrollFlight: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 border-t border-line pt-3 font-mono text-xs">
         <div>
           <span className="text-text-dim block">SECTOR CHECKPOINT</span>
-          <span className="text-text-primary font-medium">{activeCheckpoint.label}</span>
+          <span className="text-text-primary font-medium">
+            {activeCheckpoint.label}
+          </span>
         </div>
         <div>
           <span className="text-text-dim block">HUD FLIGHT STATUS</span>
-          <span className="text-signal-green">{activeCheckpoint.status}</span>
+          <span className="text-signal-green">
+            {activeCheckpoint.status}
+          </span>
         </div>
         <div>
           <span className="text-text-dim block">INDICATIVE TARIFF</span>
-          <span className="text-accent-amber font-bold">{activeCheckpoint.price}</span>
+          <span className="text-accent-amber font-bold">
+            {activeCheckpoint.price}
+          </span>
         </div>
       </div>
     </div>

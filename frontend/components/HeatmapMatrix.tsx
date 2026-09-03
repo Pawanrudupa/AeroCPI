@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 
 interface HeatmapCell {
   route: string;
@@ -50,7 +51,9 @@ export const HeatmapMatrix: React.FC = () => {
     <div className="bg-panel border border-line p-5 rounded-sm">
       <div className="flex items-center justify-between border-b border-line pb-3 mb-4">
         <div>
-          <span className="font-mono text-xs text-accent-amber block">[ HEATMAP :: SECTOR CORRIDOR MATRIX ]</span>
+          <span className="font-mono text-xs text-accent-amber block">
+            [ HEATMAP :: SECTOR CORRIDOR MATRIX ]
+          </span>
           <h2 className="text-base font-semibold text-text-primary">
             Route × Advance Purchase Tariff Matrix
           </h2>
@@ -73,9 +76,19 @@ export const HeatmapMatrix: React.FC = () => {
           <tbody>
             {ROUTES.map((route) => (
               <tr key={route} className="border-b border-line/50 hover:bg-white/[0.02]">
-                <td className="py-2.5 px-3 font-semibold text-text-primary">{route}</td>
+                {/* Route name is a clickable link to the detail page */}
+                <td className="py-2.5 px-3 font-semibold text-text-primary">
+                  <Link
+                    href={`/dashboard/route/${route}`}
+                    className="hover:text-accent-amber hover:underline transition-colors"
+                  >
+                    {route} →
+                  </Link>
+                </td>
                 {WINDOWS.map((win) => {
-                  const cell = HEATMAP_DATA.find((c) => c.route === route && c.window === win);
+                  const cell = HEATMAP_DATA.find(
+                    (c) => c.route === route && c.window === win,
+                  );
                   const fare = cell ? cell.avgFare : 0;
                   const surge = cell ? cell.surge : false;
                   return (
@@ -83,11 +96,15 @@ export const HeatmapMatrix: React.FC = () => {
                       <div
                         className={`py-1.5 px-2 border rounded-sm transition-colors ${getCellColor(
                           fare,
-                          surge
+                          surge,
                         )}`}
                       >
                         ₹ {fare.toLocaleString()}
-                        {surge && <span className="ml-1 text-[10px] text-alert font-bold">▲ SURGE</span>}
+                        {surge && (
+                          <span className="ml-1 text-[10px] text-alert font-bold">
+                            ▲ SURGE
+                          </span>
+                        )}
                       </div>
                     </td>
                   );
@@ -101,16 +118,19 @@ export const HeatmapMatrix: React.FC = () => {
       <div className="mt-3 pt-3 border-t border-line text-[11px] font-mono text-text-dim flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 bg-panel border border-line inline-block" /> Economy Base
+            <span className="w-2.5 h-2.5 bg-panel border border-line inline-block" />{" "}
+            Economy Base
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 bg-accent-amber/20 border border-accent-amber inline-block" /> Elevated
+            <span className="w-2.5 h-2.5 bg-accent-amber/20 border border-accent-amber inline-block" />{" "}
+            Elevated
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 bg-alert/20 border border-alert inline-block" /> Spike / Surge
+            <span className="w-2.5 h-2.5 bg-alert/20 border border-alert inline-block" />{" "}
+            Spike / Surge
           </span>
         </div>
-        <span>SORT: PASSENGER VOLUME</span>
+        <span>CLICK ROUTE FOR DETAIL VIEW</span>
       </div>
     </div>
   );

@@ -15,8 +15,17 @@ interface DecryptTextProps {
 
 /**
  * Decrypt / text-scramble effect per DESIGN.md Section 2.
- * Cycles glyph set (# + & * ~ / $ % 0 1) before locking left-to-right into final text.
- * Triggers on load and on hover. Resolves instantly under prefers-reduced-motion.
+ *
+ * Cycles through glyph set (# + & * ~ / $ % 0 1) before locking
+ * characters left-to-right into the final text.
+ *
+ * - Triggers ONCE on page load (guaranteed — not dependent on hover).
+ * - Re-triggers on hover if triggerOnHover is true.
+ * - Resolves instantly under prefers-reduced-motion.
+ *
+ * How to observe:
+ *   On page load the headline visibly scrambles for ~700ms then resolves.
+ *   Hover the text to re-trigger the scramble.
  */
 export const DecryptText: React.FC<DecryptTextProps> = ({
   text,
@@ -26,24 +35,40 @@ export const DecryptText: React.FC<DecryptTextProps> = ({
   triggerOnHover = true,
   as: Component = "span",
 }) => {
-  const [displayText, setDisplayText] = useState<string>(text);
-  const [isScrambling, setIsScrambling] = useState<boolean>(false);
-  const animationFrameRef = useRef<number | null>(null);
+  /* Start with scrambled glyphs so the first frame is visibly scrambled */
+  const scrambledInitial = text
+    .split("")
+    .map((ch) =>
+      ch === " " ? " " : GLYPHS[Math.floor(Math.random() * GLYPHS.length)],
+    )
+    .join("");
+
+  const [displayText, setDisplayText] = useState(scrambledInitial);
+  const [isScrambling, setIsScrambling] = useState(false);
+  const hasRunOnLoadRef = useRef(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startScramble = useCallback(() => {
-    // Check prefers-reduced-motion
-    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    /* Respect prefers-reduced-motion */
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
       setDisplayText(text);
       return;
     }
 
+    /* Prevent overlapping animations */
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
     setIsScrambling(true);
     let frame = 0;
-    const totalFrames = durationFrames;
 
-    const interval = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       frame++;
-      const progress = frame / totalFrames;
+      const progress = frame / durationFrames;
       const lockIndex = Math.floor(progress * text.length);
 
       const scrambled = text
@@ -57,23 +82,32 @@ export const DecryptText: React.FC<DecryptTextProps> = ({
 
       setDisplayText(scrambled);
 
-      if (frame >= totalFrames) {
-        clearInterval(interval);
+      if (frame >= durationFrames) {
+        clearInterval(intervalRef.current!);
+        intervalRef.current = null;
         setDisplayText(text);
         setIsScrambling(false);
       }
     }, frameSpeedMs);
-
-    return () => clearInterval(interval);
   }, [text, durationFrames, frameSpeedMs]);
 
-  // Trigger once on page load per DESIGN.md
+  /* Fire exactly once on mount — guarded by ref so React strict mode
+     double-invocation doesn't cause a visible double-scramble */
   useEffect(() => {
-    const cleanup = startScramble();
+    if (hasRunOnLoadRef.current) return;
+    hasRunOnLoadRef.current = true;
+
+    /* Small delay so the initial scrambled state is visible first */
+    const timer = setTimeout(() => {
+      startScramble();
+    }, 120);
+
     return () => {
-      if (cleanup) cleanup();
+      clearTimeout(timer);
+      if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [startScramble]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleMouseEnter = () => {
     if (triggerOnHover && !isScrambling) {

@@ -1,183 +1,291 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useRef } from "react";
+import Link from "next/link";
 import { DecryptText } from "@/components/DecryptText";
 import { DotGridSpotlight } from "@/components/DotGridSpotlight";
 import { DirectionalPlaneCursor } from "@/components/DirectionalPlaneCursor";
 import { HeroScrollFlight } from "@/components/HeroScrollFlight";
-import { LiveTrendChart } from "@/components/LiveTrendChart";
-import { HeatmapMatrix } from "@/components/HeatmapMatrix";
-import { ElasticityCurve } from "@/components/ElasticityCurve";
-import { QuoteTable, DisplayQuote } from "@/components/QuoteTable";
 
-// Initial bundled baseline quotes for instant rendering
-const INITIAL_QUOTES: DisplayQuote[] = [
-  { route: "DEL-BOM", carrier: "IndiGo", flight_number: "6E-205", window: "T+7", base_fare: 4600, taxes: 750, udf: 350, convenience_fee: 300, total_fare: 6000, source: "indigo", source_type: "live" },
-  { route: "DEL-BOM", carrier: "Akasa Air", flight_number: "QP-1102", window: "T+7", base_fare: 4400, taxes: 700, udf: 350, convenience_fee: 250, total_fare: 5700, source: "akasa", source_type: "live" },
-  { route: "DEL-BOM", carrier: "SpiceJet", flight_number: "SG-8169", window: "T+7", base_fare: 4200, taxes: 700, udf: 350, convenience_fee: 250, total_fare: 5500, source: "easemytrip", source_type: "seeded" },
-  { route: "DEL-BLR", carrier: "IndiGo", flight_number: "6E-2134", window: "T+7", base_fare: 5200, taxes: 850, udf: 450, convenience_fee: 300, total_fare: 6800, source: "indigo", source_type: "live" },
-  { route: "DEL-BLR", carrier: "Air India", flight_number: "AI-506", window: "T+7", base_fare: 5600, taxes: 900, udf: 450, convenience_fee: 300, total_fare: 7250, source: "cleartrip", source_type: "seeded" },
-  { route: "BOM-BLR", carrier: "IndiGo", flight_number: "6E-5318", window: "T+7", base_fare: 3800, taxes: 600, udf: 350, convenience_fee: 300, total_fare: 5050, source: "indigo", source_type: "live" },
-  { route: "DEL-BOM", carrier: "IndiGo", flight_number: "6E-205", window: "T+15", base_fare: 3800, taxes: 650, udf: 350, convenience_fee: 300, total_fare: 5100, source: "indigo", source_type: "live" },
-  { route: "DEL-BLR", carrier: "IndiGo", flight_number: "6E-2134", window: "T+15", base_fare: 4300, taxes: 750, udf: 450, convenience_fee: 300, total_fare: 5800, source: "indigo", source_type: "live" },
-  { route: "DEL-BOM", carrier: "IndiGo", flight_number: "6E-205", window: "T+30", base_fare: 3100, taxes: 550, udf: 350, convenience_fee: 300, total_fare: 4300, source: "indigo", source_type: "live" },
-  { route: "BLR-HYD", carrier: "IndiGo", flight_number: "6E-419", window: "T+7", base_fare: 2900, taxes: 500, udf: 350, convenience_fee: 300, total_fare: 4050, source: "indigo", source_type: "live" },
-  { route: "MAA-DEL", carrier: "IndiGo", flight_number: "6E-6814", window: "T+7", base_fare: 5400, taxes: 850, udf: 400, convenience_fee: 300, total_fare: 6950, source: "indigo", source_type: "live" },
-  { route: "DEL-CCU", carrier: "IndiGo", flight_number: "6E-201", window: "T+7", base_fare: 4900, taxes: 800, udf: 350, convenience_fee: 300, total_fare: 6350, source: "indigo", source_type: "live" }
-];
-
-export default function DashboardPage() {
+/**
+ * Landing page — marketing/context only.
+ *
+ * Contains:
+ *   - Hero section with all 4 DESIGN.md interaction effects
+ *   - "What is AeroCPI" problem/solution explanation
+ *   - "How it Works" pipeline visual
+ *   - CTA into the dashboard via /login
+ *
+ * Does NOT contain data tables, heatmap, elasticity curve, or raw audit log.
+ */
+export default function LandingPage() {
   const heroRef = useRef<HTMLDivElement>(null);
-  const [quotes, setQuotes] = useState<DisplayQuote[]>(INITIAL_QUOTES);
-  const [isSyncing, setIsSyncing] = useState<boolean>(false);
-  const [liveStatus, setLiveStatus] = useState<string>("INITIALIZED");
-
-  // Attempt live connection to backend if available
-  useEffect(() => {
-    async function checkBackend() {
-      try {
-        const res = await fetch("http://localhost:8000/health");
-        if (res.ok) {
-          setLiveStatus("API CONNECTED (PORT 8000)");
-        }
-      } catch {
-        setLiveStatus("STANDALONE HUD MODE");
-      }
-    }
-    checkBackend();
-  }, []);
-
-  const handleTriggerSync = async () => {
-    setIsSyncing(true);
-    try {
-      // Simulate/trigger pipeline run
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      setLiveStatus("PIPELINE SYNCED [T+7, T+15, T+30]");
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   return (
     <main className="min-h-screen bg-bg-void text-text-primary selection:bg-accent-amber selection:text-bg-void">
-      {/* Top System Status Bar */}
-      <header className="border-b border-line bg-panel/80 backdrop-blur-md sticky top-0 z-40 px-4 md:px-8 py-2.5 flex flex-wrap items-center justify-between text-xs font-mono">
-        <div className="flex items-center gap-3">
-          <span className="text-accent-amber font-bold tracking-wider">
-            [ SYSTEM :: AeroCPI TERMINAL ]
-          </span>
-          <span className="hidden sm:inline text-text-dim">|</span>
-          <span className="hidden sm:inline text-signal-green flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
-            {liveStatus}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-4 text-[11px] text-text-dim">
-          <span>BASKET: 6 SECTORS × 3 WINDOWS</span>
-          <span className="hidden md:inline text-text-primary bg-line/60 px-2 py-0.5 rounded-xs">
-            INDEX METHOD: GEKS-TÖRNQVIST
-          </span>
-        </div>
-      </header>
-
-      {/* Hero Section with HUD Interaction Effects */}
-      <section
-        ref={heroRef}
-        className="relative border-b border-line px-4 md:px-8 py-12 md:py-16 overflow-hidden cursor-crosshair"
-      >
-        {/* Effect 3: Mouse-tracking dot-grid spotlight */}
-        <DotGridSpotlight className="absolute inset-0 z-0" />
-
-        {/* Effect 4: Directional plane cursor (scoped to hero) */}
-        <DirectionalPlaneCursor containerRef={heroRef as React.RefObject<HTMLElement>} />
-
-        <div className="relative z-10 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          {/* Asymmetric Left Data Column */}
-          <div className="lg:col-span-6 space-y-6">
-            <div className="inline-block border border-accent-amber/40 bg-accent-amber/10 px-2.5 py-1 text-xs font-mono text-accent-amber">
-              NSO/MoSPI CPI TRANSPORT AUGMENTATION ENGINE
-            </div>
-
-            {/* Effect 2: Decrypt / text-scramble headline */}
-            <h1 className="text-3xl md:text-5xl font-bold font-mono text-text-primary tracking-tight leading-tight">
-              <DecryptText
-                text="AeroCPI :: REAL-TIME AIRFARE PRICE INDEX"
-                triggerOnHover={true}
-              />
-            </h1>
-
-            <p className="text-text-dim text-sm md:text-base leading-relaxed font-sans max-w-xl">
-              Capturing over 90% of Indian domestic air ticket transactions across airline direct APIs
-              and OTAs. Replaces manual, limited-outlet CPI airfare sampling with multilateral
-              GEKS-Törnqvist price aggregation weighted by official DGCA passenger density.
-            </p>
-
-            {/* Quick Metrics HUD */}
-            <div className="grid grid-cols-3 gap-3 border border-line bg-panel/90 p-4 font-mono">
-              <div>
-                <span className="text-[10px] text-text-dim block">DAILY AEROCPI</span>
-                <span className="text-xl md:text-2xl font-bold text-accent-amber">105.90</span>
-                <span className="text-[10px] text-signal-green block">+5.9% Q3 CY26</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-text-dim block">DGCA TRACKING r</span>
-                <span className="text-xl md:text-2xl font-bold text-signal-green">0.942</span>
-                <span className="text-[10px] text-text-dim block">RMS: 0.62%</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-text-dim block">ROUTE BASKET</span>
-                <span className="text-xl md:text-2xl font-bold text-text-primary">6 PAIRS</span>
-                <span className="text-[10px] text-text-dim block">74 FLIGHTS/DAY</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Asymmetric Right Route Visualization */}
-          <div className="lg:col-span-6">
-            {/* Effect 1: Hero Scroll-Flight Arc */}
-            <HeroScrollFlight />
-          </div>
-        </div>
-      </section>
-
-      {/* Below the Fold: Calm, Dense Analytics Dashboard per DESIGN.md */}
-      <section className="px-4 md:px-8 py-10 max-w-7xl mx-auto space-y-8">
-        {/* Row 1: AeroCPI vs DGCA Official Benchmark Line Chart */}
-        <div>
-          <LiveTrendChart />
-        </div>
-
-        {/* Row 2: Heatmap Matrix & Elasticity Curve */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-7">
-            <HeatmapMatrix />
-          </div>
-          <div className="lg:col-span-5">
-            <ElasticityCurve />
-          </div>
-        </div>
-
-        {/* Row 3: Raw Scraped Quote Feed with Live vs Seeded Badges */}
-        <div>
-          <QuoteTable
-            quotes={quotes}
-            onTriggerSync={handleTriggerSync}
-            isSyncing={isSyncing}
+      {/* ============================================================ */}
+      {/*  HERO SECTION — all 4 interaction effects active here         */}
+      {/* ============================================================ */}
+      <section ref={heroRef} className="relative border-b border-line">
+        {/* Effect 3: DotGridSpotlight wraps the hero content */}
+        <DotGridSpotlight className="px-4 md:px-8 py-16 md:py-24">
+          {/* Effect 4: Directional plane cursor (scoped to hero only) */}
+          <DirectionalPlaneCursor
+            containerRef={heroRef as React.RefObject<HTMLElement>}
           />
+
+          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+            {/* Left Column: Headline + Context */}
+            <div className="lg:col-span-6 space-y-6">
+              <div className="inline-block border border-accent-amber/40 bg-accent-amber/10 px-2.5 py-1 text-xs font-mono text-accent-amber">
+                NSO / MoSPI CPI TRANSPORT AUGMENTATION ENGINE
+              </div>
+
+              {/* Effect 2: Decrypt text-scramble headline */}
+              <h1 className="text-3xl md:text-5xl font-bold font-mono text-text-primary tracking-tight leading-tight">
+                <DecryptText
+                  text="AeroCPI"
+                  triggerOnHover={true}
+                  durationFrames={18}
+                  frameSpeedMs={40}
+                />
+                <br />
+                <span className="text-accent-amber text-2xl md:text-3xl">
+                  <DecryptText
+                    text="REAL-TIME AIRFARE PRICE INDEX"
+                    triggerOnHover={true}
+                    durationFrames={22}
+                    frameSpeedMs={30}
+                  />
+                </span>
+              </h1>
+
+              <p className="text-text-dim text-sm md:text-base leading-relaxed font-sans max-w-xl">
+                India&apos;s first automated, high-frequency airfare price index
+                — replacing decades-old manual outlet sampling with live web
+                scraping, multilateral GEKS-Törnqvist aggregation, and official
+                DGCA benchmark validation.
+              </p>
+
+              {/* CTA */}
+              <div className="flex items-center gap-4 pt-2">
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent-amber text-bg-void font-mono font-bold text-sm hover:bg-accent-amber/90 transition-colors"
+                >
+                  ENTER TERMINAL →
+                </Link>
+                <span className="text-text-dim text-xs font-mono">
+                  PROTOTYPE v1.0.0
+                </span>
+              </div>
+            </div>
+
+            {/* Right Column: Effect 1 — Scroll-Flight Arc */}
+            <div className="lg:col-span-6">
+              <HeroScrollFlight />
+            </div>
+          </div>
+        </DotGridSpotlight>
+      </section>
+
+      {/* ============================================================ */}
+      {/*  SECTION 2: What is AeroCPI — the problem & solution          */}
+      {/* ============================================================ */}
+      <section className="px-4 md:px-8 py-16 md:py-20 border-b border-line">
+        <div className="max-w-4xl mx-auto space-y-10">
+          <div className="space-y-2">
+            <span className="font-mono text-xs text-accent-amber">
+              [ CONTEXT :: THE PROBLEM ]
+            </span>
+            <h2 className="text-2xl md:text-3xl font-bold text-text-primary">
+              Why India Needs a Better Airfare Price Index
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm leading-relaxed">
+            <div className="space-y-4">
+              <h3 className="font-mono text-accent-amber text-xs tracking-wider">
+                THE CPI BLIND SPOT
+              </h3>
+              <p className="text-text-dim">
+                India&apos;s official Consumer Price Index (CPI), maintained by
+                MoSPI and NSO, tracks airfare inflation through manual collection
+                from a handful of travel outlets — typically once or twice a
+                month. This sampling method, designed decades ago for stable
+                commodities, misses the extreme price dynamics of modern airline
+                revenue management.
+              </p>
+              <p className="text-text-dim">
+                A single domestic flight can see its price change 10–50 times
+                between booking open and departure. The official CPI captures
+                none of this variance — it sees one static price point per month
+                per route, at best.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="font-mono text-accent-amber text-xs tracking-wider">
+                WHAT AeroCPI DOES ABOUT IT
+              </h3>
+              <p className="text-text-dim">
+                AeroCPI automates what the CPI does manually: it scrapes live
+                fares from airline websites (IndiGo, Akasa Air) and OTA
+                platforms (EaseMyTrip, Cleartrip) across 6 high-traffic domestic
+                routes and 3 advance booking windows (T+7, T+15, T+30 days
+                before departure).
+              </p>
+              <p className="text-text-dim">
+                Collected fares are cleaned, normalized (base fare + taxes + UDF
+                + convenience fee = total fare), deduplicated, and fed into a
+                multilateral GEKS-Törnqvist price index — the same methodology
+                recommended by Eurostat and the ILO for handling scanner/web-scraped
+                price data. The result is backtested against published DGCA
+                monthly passenger yield figures.
+              </p>
+            </div>
+          </div>
+
+          {/* Framing note */}
+          <div className="border border-line bg-panel px-5 py-4 text-xs font-mono text-text-dim">
+            <span className="text-accent-amber font-bold">⚠ PROTOTYPE NOTICE:</span>{" "}
+            AeroCPI is a working technical demonstration, not a production system
+            deployed by RBI, MoSPI, or any government agency. It demonstrates
+            that automated web-scraped airfare indexing is technically feasible
+            and statistically rigorous enough to complement official CPI data.
+          </div>
         </div>
       </section>
 
-      {/* Footer System Status */}
+      {/* ============================================================ */}
+      {/*  SECTION 3: How It Works — pipeline visual                    */}
+      {/* ============================================================ */}
+      <section className="px-4 md:px-8 py-16 md:py-20 border-b border-line">
+        <div className="max-w-5xl mx-auto space-y-10">
+          <div className="space-y-2">
+            <span className="font-mono text-xs text-accent-amber">
+              [ ARCHITECTURE :: DATA PIPELINE ]
+            </span>
+            <h2 className="text-2xl md:text-3xl font-bold text-text-primary">
+              From Raw Web Scrape to Published Index
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {
+                step: "01",
+                title: "SCRAPE",
+                desc: "Live fare collection from 4 sources (2 airlines, 2 OTAs) across 6 routes × 3 windows. Anti-bot detection with graceful fallback to seeded baselines.",
+                accent: "text-signal-green",
+              },
+              {
+                step: "02",
+                title: "CLEAN",
+                desc: "Component normalization (base + taxes + UDF + fees), SHA-256 immutable landing zone, IQR outlier rejection, and deduplication.",
+                accent: "text-accent-amber",
+              },
+              {
+                step: "03",
+                title: "INDEX",
+                desc: "Multilateral GEKS-Törnqvist aggregation weighted by DGCA passenger traffic shares. Eliminates chain drift and preserves transitivity.",
+                accent: "text-accent-amber",
+              },
+              {
+                step: "04",
+                title: "VALIDATE",
+                desc: "Backtested against verified DGCA monthly yield publications. Tracking Pearson correlation r ≈ 0.94 with full provenance audit trail.",
+                accent: "text-signal-green",
+              },
+            ].map((item) => (
+              <div
+                key={item.step}
+                className="border border-line bg-panel p-5 space-y-3"
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`font-mono text-2xl font-bold ${item.accent}`}
+                  >
+                    {item.step}
+                  </span>
+                  <span className="font-mono text-xs text-text-primary font-bold tracking-wider">
+                    {item.title}
+                  </span>
+                </div>
+                <p className="text-text-dim text-xs leading-relaxed">
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Arrow connectors between steps — visible on desktop */}
+          <div className="hidden lg:flex items-center justify-center gap-1 font-mono text-accent-amber text-xs">
+            <span>SCRAPE</span>
+            <span className="text-text-dim mx-1">→</span>
+            <span>CLEAN</span>
+            <span className="text-text-dim mx-1">→</span>
+            <span>INDEX</span>
+            <span className="text-text-dim mx-1">→</span>
+            <span>VALIDATE</span>
+            <span className="text-text-dim mx-1">→</span>
+            <span className="text-signal-green font-bold">DASHBOARD</span>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================ */}
+      {/*  SECTION 4: Key Stats + Final CTA                             */}
+      {/* ============================================================ */}
+      <section className="px-4 md:px-8 py-16 md:py-20">
+        <div className="max-w-4xl mx-auto text-center space-y-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-mono">
+            {[
+              { label: "ROUTES", value: "6", sub: "City Pairs" },
+              { label: "SOURCES", value: "4", sub: "Airlines + OTAs" },
+              { label: "WINDOWS", value: "3", sub: "T+7 / T+15 / T+30" },
+              { label: "DGCA r", value: "0.94", sub: "Pearson Tracking" },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="border border-line bg-panel py-5 px-3"
+              >
+                <span className="text-text-dim text-[10px] block">
+                  {stat.label}
+                </span>
+                <span className="text-2xl font-bold text-accent-amber">
+                  {stat.value}
+                </span>
+                <span className="text-text-dim text-[10px] block">
+                  {stat.sub}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-accent-amber text-bg-void font-mono font-bold text-sm hover:bg-accent-amber/90 transition-colors"
+          >
+            VIEW LIVE INDEX →
+          </Link>
+        </div>
+      </section>
+
+      {/* ============================================================ */}
+      {/*  FOOTER                                                       */}
+      {/* ============================================================ */}
       <footer className="border-t border-line bg-panel px-4 md:px-8 py-6 font-mono text-xs text-text-dim">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div>
-            <span className="text-text-primary font-bold">AeroCPI PROTOTYPE</span> — Statistical Method:
-            Multilateral GEKS-Törnqvist (Eurostat/ILO Guidelines).
+            <span className="text-text-primary font-bold">
+              AeroCPI PROTOTYPE v1.0.0
+            </span>{" "}
+            — GEKS-Törnqvist Multilateral Index (Eurostat/ILO Guidelines)
           </div>
           <div className="flex items-center gap-4 text-[11px]">
-            <span>DATA PROVENANCE: DGCA MONTHLY AIR TRANSPORT TARIFFS</span>
-            <span className="text-signal-green">AUTH: JWT (ARGON2)</span>
+            <span>DGCA PROVENANCE VERIFIED</span>
+            <span className="text-signal-green">AUTH: JWT + ARGON2</span>
           </div>
         </div>
       </footer>

@@ -1,0 +1,16 @@
+{
+  "fallback": "bot_protection",
+  "flights": [
+    {
+      "arrTime": "09:05",
+      "base_fare": 4400.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 300.0,
+      "depTime": "06:15",
+      "flight_no": "6E-6814",
+      "taxes": 750.0,
+      "total_fare": 5850.0,
+      "udf": 400.0
+    }
+  ]
+}

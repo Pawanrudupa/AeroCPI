@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ------------------------------------------------------------------ */
+/*  Design Tokens — DESIGN.md Mood 1 Palette                          */
+/* ------------------------------------------------------------------ */
 :root {
   --bg-void: #0A0A07;
   --panel: #12120C;
@@ -12,8 +15,9 @@
   --text-primary: #E8E4D4;
   --text-dim: #8A8672;
 
+  /* Mouse position for dot-grid spotlight — updated via JS */
   --mx: 50%;
-  --my: 300px;
+  --my: 50%;
 }
 
 body {
@@ -28,20 +32,34 @@ body {
   font-family: 'JetBrains Mono', 'Menlo', 'Courier New', monospace;
 }
 
-/* Dot-grid spotlight background layers per DESIGN.md Section 3 */
+/* ------------------------------------------------------------------ */
+/*  Dot-Grid Spotlight — DESIGN.md Section 3                          */
+/*  Two stacked radial-gradient dot layers:                            */
+/*    1. dim base grid (always visible)                                */
+/*    2. bright copy masked via radial-gradient at (--mx, --my)        */
+/* ------------------------------------------------------------------ */
 .dot-grid-base {
-  background-image: radial-gradient(circle, #262316 1.1px, transparent 1.4px);
+  background-image: radial-gradient(circle, var(--line) 1.1px, transparent 1.1px);
   background-size: 22px 22px;
 }
 
 .dot-grid-spotlight {
-  background-image: radial-gradient(circle, #C9A227 1.3px, transparent 1.4px);
+  background-image: radial-gradient(circle, var(--accent-amber) 1.2px, transparent 1.2px);
   background-size: 22px 22px;
-  mask-image: radial-gradient(circle 190px at var(--mx) var(--my), black 0%, transparent 75%);
-  -webkit-mask-image: radial-gradient(circle 190px at var(--mx) var(--my), black 0%, transparent 75%);
+  -webkit-mask-image: radial-gradient(circle 170px at var(--mx) var(--my), black 0%, transparent 75%);
+  mask-image: radial-gradient(circle 170px at var(--mx) var(--my), black 0%, transparent 75%);
 }
 
-/* Reduced motion accessibility bypass per DESIGN.md */
+/* ------------------------------------------------------------------ */
+/*  Hero cursor override — hide native cursor when plane cursor active */
+/* ------------------------------------------------------------------ */
+.hero-cursor-none {
+  cursor: none !important;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Reduced motion accessibility bypass per DESIGN.md                  */
+/* ------------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {
     animation-duration: 0.01ms !important;
@@ -54,4 +72,42 @@ body {
     -webkit-mask-image: none !important;
     opacity: 0.4;
   }
+  .hero-cursor-none {
+    cursor: auto !important;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Smooth scroll for the landing page (for scroll-flight effect)      */
+/* ------------------------------------------------------------------ */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Form inputs — terminal-HUD consistent styling                      */
+/* ------------------------------------------------------------------ */
+input[type="email"],
+input[type="password"],
+input[type="text"] {
+  background-color: var(--bg-void);
+  border: 1px solid var(--line);
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="text"]:focus {
+  border-color: var(--accent-amber);
+  box-shadow: 0 0 0 1px var(--accent-amber);
+}
+
+input::placeholder {
+  color: var(--text-dim);
+  opacity: 0.6;
 }
