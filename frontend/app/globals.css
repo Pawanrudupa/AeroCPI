@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-void: #0A0A07;
+  --panel: #12120C;
+  --line: #262316;
+  --accent-amber: #C9A227;
+  --signal-green: #7FB86B;
+  --alert: #E85D4C;
+  --text-primary: #E8E4D4;
+  --text-dim: #8A8672;
+
+  --mx: 50%;
+  --my: 300px;
+}
+
+body {
+  background-color: var(--bg-void);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Monospace is reserved functionally for live data per DESIGN.md */
+.font-mono, code, pre, .mono-data {
+  font-family: 'JetBrains Mono', 'Menlo', 'Courier New', monospace;
+}
+
+/* Dot-grid spotlight background layers per DESIGN.md Section 3 */
+.dot-grid-base {
+  background-image: radial-gradient(circle, #262316 1.1px, transparent 1.4px);
+  background-size: 22px 22px;
+}
+
+.dot-grid-spotlight {
+  background-image: radial-gradient(circle, #C9A227 1.3px, transparent 1.4px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(circle 190px at var(--mx) var(--my), black 0%, transparent 75%);
+  -webkit-mask-image: radial-gradient(circle 190px at var(--mx) var(--my), black 0%, transparent 75%);
+}
+
+/* Reduced motion accessibility bypass per DESIGN.md */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .dot-grid-spotlight {
+    mask-image: none !important;
+    -webkit-mask-image: none !important;
+    opacity: 0.4;
+  }
+}

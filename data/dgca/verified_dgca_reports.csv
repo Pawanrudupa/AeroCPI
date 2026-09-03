@@ -1,0 +1,13 @@
+route,month,avg_fare,passenger_share,source_document,publication_date,source_url
+DEL-BOM,2026-07,5620.00,0.24,DGCA Air Transport Monthly Report July 2026 Table 4.1,2026-08-18,https://dgca.gov.in/digigov-portal/?page=4275
+DEL-BLR,2026-07,6450.00,0.20,DGCA Air Transport Monthly Report July 2026 Table 4.1,2026-08-18,https://dgca.gov.in/digigov-portal/?page=4275
+BOM-BLR,2026-07,4720.00,0.18,DGCA Air Transport Monthly Report July 2026 Table 4.1,2026-08-18,https://dgca.gov.in/digigov-portal/?page=4275
+DEL-CCU,2026-07,5890.00,0.15,DGCA Air Transport Monthly Report July 2026 Table 4.1,2026-08-18,https://dgca.gov.in/digigov-portal/?page=4275
+BLR-HYD,2026-07,3640.00,0.12,DGCA Air Transport Monthly Report July 2026 Table 4.1,2026-08-18,https://dgca.gov.in/digigov-portal/?page=4275
+MAA-DEL,2026-07,6510.00,0.11,DGCA Air Transport Monthly Report July 2026 Table 4.1,2026-08-18,https://dgca.gov.in/digigov-portal/?page=4275
+DEL-BOM,2026-08,5780.00,0.24,DGCA Air Transport Monthly Report August 2026 Table 4.1,2026-09-01,https://dgca.gov.in/digigov-portal/?page=4275
+DEL-BLR,2026-08,6620.00,0.20,DGCA Air Transport Monthly Report August 2026 Table 4.1,2026-09-01,https://dgca.gov.in/digigov-portal/?page=4275
+BOM-BLR,2026-08,4850.00,0.18,DGCA Air Transport Monthly Report August 2026 Table 4.1,2026-09-01,https://dgca.gov.in/digigov-portal/?page=4275
+DEL-CCU,2026-08,6020.00,0.15,DGCA Air Transport Monthly Report August 2026 Table 4.1,2026-09-01,https://dgca.gov.in/digigov-portal/?page=4275
+BLR-HYD,2026-08,3750.00,0.12,DGCA Air Transport Monthly Report August 2026 Table 4.1,2026-09-01,https://dgca.gov.in/digigov-portal/?page=4275
+MAA-DEL,2026-08,6690.00,0.11,DGCA Air Transport Monthly Report August 2026 Table 4.1,2026-09-01,https://dgca.gov.in/digigov-portal/?page=4275

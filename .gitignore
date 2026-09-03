@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+*.db
+aerocpi.db
+
+# Virtualenv
+venv/
+.venv/
+env/
+
+# Environment variables & secrets
+.env
+!.env.example
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Data landing zone (raw scrapes kept locally for dev, or backed up to S3)
+data/raw/live_*
+
+# IDE
+.vscode/
+.idea/
