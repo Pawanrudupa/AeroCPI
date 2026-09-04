@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
+import { RadarBackground } from "@/components/RadarBackground";
 
 /**
  * /login — Terminal-HUD styled authentication page.
@@ -11,6 +12,8 @@ import { useAuth } from "@/lib/auth";
  * Hits POST /auth/login on the FastAPI backend.
  * Stores JWT via AuthContext (localStorage).
  * Redirects to /dashboard on success.
+ *
+ * Background: Full-viewport ATC radar canvas with flight vectors.
  */
 export default function LoginPage() {
   const router = useRouter();
@@ -49,8 +52,12 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-bg-void text-text-primary flex items-center justify-center px-4">
-      <div className="w-full max-w-md space-y-8">
+    <main className="min-h-screen bg-[#0A0A0A] text-text-primary flex items-center justify-center px-4 relative overflow-hidden">
+      {/* ATC Radar Canvas — behind everything */}
+      <RadarBackground />
+
+      {/* Login Card — floats above the radar */}
+      <div className="w-full max-w-md space-y-8 relative z-10">
         {/* Header */}
         <div className="text-center space-y-3">
           <Link
@@ -69,10 +76,10 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Login Form */}
+        {/* Login Form — glass-panel with backdrop blur */}
         <form
           onSubmit={handleSubmit}
-          className="border border-line bg-panel p-6 md:p-8 space-y-5"
+          className="border border-accent-amber/30 bg-black/80 backdrop-blur-md p-6 md:p-8 space-y-5 shadow-2xl shadow-amber-900/10"
         >
           {/* Error State */}
           {error && (
@@ -138,7 +145,7 @@ export default function LoginPage() {
           </button>
 
           {/* Demo Account Notice */}
-          <div className="border border-line bg-bg-void px-4 py-3 text-[11px] font-mono text-text-dim space-y-1">
+          <div className="border border-line bg-bg-void/60 px-4 py-3 text-[11px] font-mono text-text-dim space-y-1">
             <p>
               <span className="text-accent-amber font-bold">
                 DEMO / EVALUATION ACCOUNT
@@ -170,3 +177,4 @@ export default function LoginPage() {
     </main>
   );
 }
+
