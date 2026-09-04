@@ -1,0 +1,38 @@
+{
+  "cached_flights": [
+    {
+      "arrTime": "08:10",
+      "base_fare": 2900.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 150.0,
+      "depTime": "07:00",
+      "flight_no": "6E-419",
+      "taxes": 500.0,
+      "total_fare": 3900.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "14:25",
+      "base_fare": 3050.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 150.0,
+      "depTime": "13:15",
+      "flight_no": "6E-722",
+      "taxes": 500.0,
+      "total_fare": 4050.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "20:10",
+      "base_fare": 2850.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 150.0,
+      "depTime": "19:00",
+      "flight_no": "6E-904",
+      "taxes": 500.0,
+      "total_fare": 3850.0,
+      "udf": 350.0
+    }
+  ],
+  "fallback_reason": "selector_drift_exhausted"
+}

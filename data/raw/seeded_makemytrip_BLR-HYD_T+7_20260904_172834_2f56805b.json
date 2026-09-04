@@ -1,0 +1,93 @@
+{
+  "fallback": "selector_drift",
+  "flights": [
+    {
+      "arrTime": "08:10",
+      "base_fare": 2840.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 549.0,
+      "depTime": "07:00",
+      "flight_no": "6E-419",
+      "taxes": 500.0,
+      "total_fare": 4239.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "14:25",
+      "base_fare": 2990.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 549.0,
+      "depTime": "13:15",
+      "flight_no": "6E-722",
+      "taxes": 500.0,
+      "total_fare": 4389.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "20:10",
+      "base_fare": 2790.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 549.0,
+      "depTime": "19:00",
+      "flight_no": "6E-904",
+      "taxes": 500.0,
+      "total_fare": 4189.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "09:55",
+      "base_fare": 2640.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 499.0,
+      "depTime": "08:45",
+      "flight_no": "QP-1411",
+      "taxes": 450.0,
+      "total_fare": 3939.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "16:40",
+      "base_fare": 2590.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 499.0,
+      "depTime": "15:30",
+      "flight_no": "QP-1435",
+      "taxes": 450.0,
+      "total_fare": 3889.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "22:20",
+      "base_fare": 2690.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 499.0,
+      "depTime": "21:10",
+      "flight_no": "QP-1472",
+      "taxes": 450.0,
+      "total_fare": 3989.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "07:25",
+      "base_fare": 2540.0,
+      "carrier": "SpiceJet",
+      "convenience_fee": 499.0,
+      "depTime": "06:15",
+      "flight_no": "SG-1082",
+      "taxes": 450.0,
+      "total_fare": 3839.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "19:30",
+      "base_fare": 2490.0,
+      "carrier": "SpiceJet",
+      "convenience_fee": 499.0,
+      "depTime": "18:20",
+      "flight_no": "SG-1094",
+      "taxes": 450.0,
+      "total_fare": 3789.0,
+      "udf": 350.0
+    }
+  ]
+}

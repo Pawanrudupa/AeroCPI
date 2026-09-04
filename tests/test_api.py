@@ -68,6 +68,9 @@ def test_gated_endpoint_unauthorized_rejection():
     response = client.get("/backtest/dgca")
     assert response.status_code == 401
 
+    response = client.get("/fares/export-pdf")
+    assert response.status_code == 401
+
 
 def test_auth_token_and_gated_flow(test_db):
     """Verify login and authenticated access to index and fare endpoints."""
@@ -101,6 +104,12 @@ def test_auth_token_and_gated_flow(test_db):
     dgca_res = client.get("/backtest/dgca", headers=headers)
     assert dgca_res.status_code == 200
 
-    # 5. Invalid token returns 401
+    # 5. Access /fares/export-pdf with valid token
+    pdf_res = client.get("/fares/export-pdf", headers=headers)
+    assert pdf_res.status_code == 200
+    assert "application/pdf" in pdf_res.headers["content-type"]
+    assert pdf_res.content.startswith(b"%PDF-")
+
+    # 6. Invalid token returns 401
     bad_res = client.get("/index/daily", headers={"Authorization": "Bearer bad-token-here"})
     assert bad_res.status_code == 401

@@ -1,0 +1,27 @@
+{
+  "fallback": "bot_protection",
+  "flights": [
+    {
+      "arrTime": "09:55",
+      "base_fare": 2200.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 100.0,
+      "depTime": "08:45",
+      "flight_no": "QP-1411",
+      "taxes": 400.0,
+      "total_fare": 3050.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "16:40",
+      "base_fare": 2150.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 100.0,
+      "depTime": "15:30",
+      "flight_no": "QP-1435",
+      "taxes": 400.0,
+      "total_fare": 3000.0,
+      "udf": 350.0
+    }
+  ]
+}

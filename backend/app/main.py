@@ -13,7 +13,7 @@ import statistics
 from contextlib import asynccontextmanager
 from typing import List, Optional, Dict, Any
 
-from fastapi import FastAPI, Depends, HTTPException, status, Query, Path
+from fastapi import FastAPI, Depends, HTTPException, status, Query, Path, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from starlette.responses import StreamingResponse
@@ -29,6 +29,7 @@ from backend.app.dgca.backtest import compute_backtest_metrics
 from backend.app.scraper.basket_runner import run_full_basket_pipeline
 from backend.app.index.geks import calculate_and_save_daily_indices
 from backend.app.events import event_bus, PipelineEvent, EventType
+from backend.app.reports.pdf_generator import generate_reports_pdf
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
@@ -322,6 +323,64 @@ def get_raw_fares(
         "count": len(quotes),
         "quotes": quotes
     }
+
+
+@app.get("/fares/export-pdf", tags=["Fares Data"])
+@app.get("/reports/export-pdf", tags=["Reports"])
+def export_fares_pdf(
+    route: Optional[str] = Query(None, description="e.g. DEL-BOM"),
+    window: Optional[str] = Query(None, description="T+7, T+15, T+30"),
+    source: Optional[str] = Query(None, description="indigo, akasa, spicejet, easemytrip, cleartrip, makemytrip"),
+    source_type: Optional[str] = Query(None, description="Filter by 'live' or 'seeded'"),
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Generate print-ready vector PDF report containing:
+    - Metadata & Plain-language filter scope
+    - Honest provenance disclosure banner (SEEDED vs LIVE)
+    - Source reliability scorecard
+    - Price differential analysis
+    - Cross-source fare comparison table & server-rendered Matplotlib bar chart
+    - Data density & methodology audit notes
+    """
+    query = select(FareQuote).order_by(FareQuote.scraped_at.desc())
+    if route and route.lower() != "all":
+        query = query.where(FareQuote.route == route.upper())
+    if window and window.lower() != "all":
+        query = query.where(FareQuote.window == window.upper())
+    if source and source.lower() != "all":
+        query = query.where(FareQuote.source == source.lower())
+    if source_type and source_type.lower() != "all":
+        query = query.where(FareQuote.source_type == source_type.lower())
+
+    quotes = session.exec(query.limit(500)).all()
+
+    # Plain-language descriptions for metadata box
+    scope_route_desc = route.upper() if (route and route.lower() != "all") else "ALL SECTORS (6 Core Routes)"
+    scope_window_desc = window.upper() if (window and window.lower() != "all") else "ALL WINDOWS (T+7, T+15, T+30)"
+    scope_source_desc = source.upper() if (source and source.lower() != "all") else "ALL 6 SOURCES"
+    scope_type_desc = source_type.upper() if (source_type and source_type.lower() != "all") else "ALL (LIVE + SEEDED)"
+
+    filter_meta = {
+        "route": scope_route_desc,
+        "window": scope_window_desc,
+        "source": scope_source_desc,
+        "source_type": scope_type_desc
+    }
+
+    pdf_bytes = generate_reports_pdf(quotes, filter_meta)
+    timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"AeroCPI_Telemetry_Report_{timestamp}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-cache",
+        }
+    )
 
 
 @app.get("/backtest/dgca", tags=["Validation & Backtest"])

@@ -1,0 +1,93 @@
+{
+  "fallback": "selector_drift",
+  "flights": [
+    {
+      "arrTime": "08:15",
+      "base_fare": 3180.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 499.0,
+      "depTime": "06:00",
+      "flight_no": "6E-205",
+      "taxes": 550.0,
+      "total_fare": 4579.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "11:45",
+      "base_fare": 3380.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 499.0,
+      "depTime": "09:30",
+      "flight_no": "6E-5012",
+      "taxes": 550.0,
+      "total_fare": 4779.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "19:30",
+      "base_fare": 3280.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 499.0,
+      "depTime": "17:15",
+      "flight_no": "6E-6014",
+      "taxes": 550.0,
+      "total_fare": 4679.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "09:45",
+      "base_fare": 2980.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 449.0,
+      "depTime": "07:30",
+      "flight_no": "QP-1102",
+      "taxes": 500.0,
+      "total_fare": 4279.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "16:30",
+      "base_fare": 2930.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 449.0,
+      "depTime": "14:15",
+      "flight_no": "QP-1124",
+      "taxes": 500.0,
+      "total_fare": 4229.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "21:15",
+      "base_fare": 3030.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 449.0,
+      "depTime": "19:00",
+      "flight_no": "QP-1186",
+      "taxes": 500.0,
+      "total_fare": 4329.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "10:35",
+      "base_fare": 2880.0,
+      "carrier": "SpiceJet",
+      "convenience_fee": 449.0,
+      "depTime": "08:15",
+      "flight_no": "SG-8169",
+      "taxes": 500.0,
+      "total_fare": 4179.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "18:05",
+      "base_fare": 2830.0,
+      "carrier": "SpiceJet",
+      "convenience_fee": 449.0,
+      "depTime": "15:45",
+      "flight_no": "SG-136",
+      "taxes": 500.0,
+      "total_fare": 4129.0,
+      "udf": 350.0
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "fallback": "empty_extract",
+  "flights": [
+    {
+      "arrTime": "08:15",
+      "base_fare": 3400.0,
+      "carrier": "SpiceJet",
+      "convenience_fee": 100.0,
+      "depTime": "06:30",
+      "flight_no": "SG-3011",
+      "taxes": 550.0,
+      "total_fare": 4400.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "16:55",
+      "base_fare": 3350.0,
+      "carrier": "SpiceJet",
+      "convenience_fee": 100.0,
+      "depTime": "15:10",
+      "flight_no": "SG-3019",
+      "taxes": 550.0,
+      "total_fare": 4350.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "22:45",
+      "base_fare": 3450.0,
+      "carrier": "SpiceJet",
+      "convenience_fee": 100.0,
+      "depTime": "21:00",
+      "flight_no": "SG-3025",
+      "taxes": 550.0,
+      "total_fare": 4450.0,
+      "udf": 350.0
+    }
+  ]
+}

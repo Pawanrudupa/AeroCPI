@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
-import { api, type FareQuoteRecord } from "@/lib/api";
+import { api, API_BASE, type FareQuoteRecord } from "@/lib/api";
 
 const CORE_ROUTES = ["DEL-BOM", "DEL-BLR", "BOM-BLR", "DEL-CCU", "BLR-HYD", "MAA-DEL"];
 const ADVANCE_WINDOWS = ["T+7", "T+15", "T+30"];
@@ -22,6 +22,7 @@ export default function ReportsPage() {
   const [quotes, setQuotes] = useState<FareQuoteRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Active filters
   const [selectedRoute, setSelectedRoute] = useState<string>("all");
@@ -240,6 +241,46 @@ export default function ReportsPage() {
     URL.revokeObjectURL(url);
   };
 
+  // Section 5b: PDF Export function
+  const handleExportPDF = async () => {
+    if (!token || isExportingPdf) return;
+    setIsExportingPdf(true);
+    try {
+      const params = new URLSearchParams();
+      if (selectedRoute !== "all") params.set("route", selectedRoute);
+      if (selectedWindow !== "all") params.set("window", selectedWindow);
+      if (selectedSource !== "all") params.set("source", selectedSource);
+      if (selectedSourceType !== "all") params.set("source_type", selectedSourceType);
+
+      const qs = params.toString() ? `?${params.toString()}` : "";
+      const res = await fetch(`${API_BASE}/fares/export-pdf${qs}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to export PDF: ${res.statusText}`);
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      link.setAttribute("download", `AeroCPI_Telemetry_Report_${timestamp}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "Failed to download PDF report");
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   return (
     <div className="space-y-8 font-mono">
       {/* Breadcrumb + Report Header */}
@@ -269,11 +310,21 @@ export default function ReportsPage() {
             <button
               onClick={handleExportCSV}
               disabled={filteredQuotes.length === 0}
-              className="px-3 py-1.5 bg-accent-amber/10 border border-accent-amber text-accent-amber hover:bg-accent-amber hover:text-bg-void transition-colors text-xs font-bold flex items-center gap-2 disabled:opacity-40"
+              className="px-3 py-1.5 bg-accent-amber/10 border border-accent-amber text-accent-amber hover:bg-accent-amber hover:text-bg-void transition-colors text-xs font-bold flex items-center gap-2 disabled:opacity-40 cursor-pointer"
               title="Download filtered quotes as normalized RFC 4180 CSV"
             >
               <span>⬇</span>
               <span>EXPORT CSV ({filteredQuotes.length} ROWS)</span>
+            </button>
+
+            <button
+              onClick={handleExportPDF}
+              disabled={filteredQuotes.length === 0 || isExportingPdf}
+              className="px-3 py-1.5 bg-signal-green/10 border border-signal-green text-signal-green hover:bg-signal-green hover:text-bg-void transition-colors text-xs font-bold flex items-center gap-2 disabled:opacity-40 cursor-pointer"
+              title="Download print-ready vector PDF report with embedded charts and provenance certification"
+            >
+              <span>{isExportingPdf ? "⌛" : "📄"}</span>
+              <span>{isExportingPdf ? "GENERATING PDF..." : "EXPORT PDF"}</span>
             </button>
           </div>
         </div>

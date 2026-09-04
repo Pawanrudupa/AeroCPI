@@ -95,6 +95,7 @@ export interface FareQuoteRecord {
   udf: number | null;
   convenience_fee: number | null;
   total_fare: number;
+  currency?: string;
   source: string;
   source_type: "live" | "seeded";
   scraped_at: string;

@@ -1,0 +1,38 @@
+{
+  "fallback": "bot_protection",
+  "flights": [
+    {
+      "arrTime": "10:40",
+      "base_fare": 4200.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 100.0,
+      "depTime": "07:50",
+      "flight_no": "QP-1602",
+      "taxes": 700.0,
+      "total_fare": 5400.0,
+      "udf": 400.0
+    },
+    {
+      "arrTime": "19:35",
+      "base_fare": 4150.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 100.0,
+      "depTime": "16:45",
+      "flight_no": "QP-1628",
+      "taxes": 700.0,
+      "total_fare": 5350.0,
+      "udf": 400.0
+    },
+    {
+      "arrTime": "00:20",
+      "base_fare": 4250.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 100.0,
+      "depTime": "21:30",
+      "flight_no": "QP-1650",
+      "taxes": 700.0,
+      "total_fare": 5450.0,
+      "udf": 400.0
+    }
+  ]
+}

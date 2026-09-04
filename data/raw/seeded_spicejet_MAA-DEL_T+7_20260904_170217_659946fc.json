@@ -1,0 +1,16 @@
+{
+  "fallback": "empty_extract",
+  "flights": [
+    {
+      "arrTime": "18:20",
+      "base_fare": 4950.0,
+      "carrier": "SpiceJet",
+      "convenience_fee": 100.0,
+      "depTime": "15:30",
+      "flight_no": "SG-2901",
+      "taxes": 800.0,
+      "total_fare": 6250.0,
+      "udf": 400.0
+    }
+  ]
+}

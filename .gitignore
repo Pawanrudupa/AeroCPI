@@ -21,6 +21,7 @@ env/
 frontend/node_modules/
 frontend/.next/
 frontend/out/
+*.tsbuildinfo
 
 # Data landing zone (raw scrapes kept locally for dev, or backed up to S3)
 data/raw/live_*

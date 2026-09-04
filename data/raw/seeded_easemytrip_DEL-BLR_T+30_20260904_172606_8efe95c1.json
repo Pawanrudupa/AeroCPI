@@ -1,0 +1,82 @@
+{
+  "fallback": "bot_protection",
+  "flights": [
+    {
+      "arrTime": "10:05",
+      "base_fare": 3480.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 449.0,
+      "depTime": "07:15",
+      "flight_no": "6E-2134",
+      "taxes": 650.0,
+      "total_fare": 5029.0,
+      "udf": 450.0
+    },
+    {
+      "arrTime": "16:20",
+      "base_fare": 3580.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 449.0,
+      "depTime": "13:30",
+      "flight_no": "6E-289",
+      "taxes": 650.0,
+      "total_fare": 5129.0,
+      "udf": 450.0
+    },
+    {
+      "arrTime": "09:30",
+      "base_fare": 3280.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 399.0,
+      "depTime": "06:40",
+      "flight_no": "QP-1354",
+      "taxes": 600.0,
+      "total_fare": 4729.0,
+      "udf": 450.0
+    },
+    {
+      "arrTime": "17:00",
+      "base_fare": 3230.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 399.0,
+      "depTime": "14:10",
+      "flight_no": "QP-1382",
+      "taxes": 600.0,
+      "total_fare": 4679.0,
+      "udf": 450.0
+    },
+    {
+      "arrTime": "23:05",
+      "base_fare": 3330.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 399.0,
+      "depTime": "20:15",
+      "flight_no": "QP-1410",
+      "taxes": 600.0,
+      "total_fare": 4779.0,
+      "udf": 450.0
+    },
+    {
+      "arrTime": "11:50",
+      "base_fare": 3130.0,
+      "carrier": "SpiceJet",
+      "convenience_fee": 399.0,
+      "depTime": "09:00",
+      "flight_no": "SG-502",
+      "taxes": 600.0,
+      "total_fare": 4579.0,
+      "udf": 450.0
+    },
+    {
+      "arrTime": "19:10",
+      "base_fare": 3080.0,
+      "carrier": "SpiceJet",
+      "convenience_fee": 399.0,
+      "depTime": "16:20",
+      "flight_no": "SG-508",
+      "taxes": 600.0,
+      "total_fare": 4529.0,
+      "udf": 450.0
+    }
+  ]
+}
