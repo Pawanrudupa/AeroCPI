@@ -41,6 +41,12 @@ export function CommandBar() {
       const pair = parts[1].toUpperCase();
       router.push(`/dashboard/route/${pair}`);
       setResponse({ msg: `Navigating to ${pair}...`, type: "success" });
+    } else if (cmd === "reports" || cmd === "report") {
+      router.push("/dashboard/reports");
+      setResponse({ msg: "Navigating to Reports...", type: "success" });
+    } else if (cmd === "dashboard") {
+      router.push("/dashboard");
+      setResponse({ msg: "Navigating to Dashboard...", type: "success" });
     } else if (cmd === "surge" && parts[1]?.toLowerCase() === "test") {
       if (!isDev) {
         setResponse({ msg: "Dev commands are disabled in production build", type: "error" });
@@ -70,8 +76,8 @@ export function CommandBar() {
     } else if (cmd === "help") {
       setResponse({
         msg: isDev
-          ? "Commands: route <PAIR>, surge, clear, surge test [PAIR], help"
-          : "Commands: route <PAIR>, surge, clear, help",
+          ? "Commands: route <PAIR>, reports, dashboard, surge, clear, surge test [PAIR], help"
+          : "Commands: route <PAIR>, reports, dashboard, surge, clear, help",
         type: "info",
       });
     } else {

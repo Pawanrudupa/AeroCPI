@@ -42,7 +42,7 @@ export const PipelineLogConsole: React.FC = () => {
 
   const [isConnected, setIsConnected] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isTriggering, setIsTriggering] = useState(false);
+
   const logEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -126,18 +126,7 @@ export const PipelineLogConsole: React.FC = () => {
     };
   }, [token, addPipelineEvent, setIsPipelineRunning]);
 
-  /* Trigger pipeline */
-  const handleTriggerPipeline = async () => {
-    if (!token || isPipelineRunning || isTriggering) return;
-    setIsTriggering(true);
-    try {
-      await api.triggerSyncSSE(token);
-    } catch {
-      /* trigger failed — SSE stream will report the error */
-    } finally {
-      setIsTriggering(false);
-    }
-  };
+  /* Trigger pipeline (Moved to HeaderActions) */
 
   return (
     <div className="bg-panel border border-line rounded-sm">
@@ -170,47 +159,6 @@ export const PipelineLogConsole: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 font-mono text-xs">
-          {/* Dev-only surge toast test trigger */}
-          {(process.env.NODE_ENV !== "production" ||
-            process.env.NEXT_PUBLIC_DEV_MODE === "true") && (
-            <button
-              onClick={() => {
-                addPipelineEvent({
-                  event_type: "surge_detected",
-                  message:
-                    "▲ SURGE :: DEL-BOM — 28.5% ABOVE BASELINE [DEV TEST TRIGGER]",
-                  route: "DEL-BOM",
-                  source: "dev-test",
-                  window: "T+7",
-                  data: { current: 7800, baseline: 6070, pct_above: "28.5" },
-                  timestamp: new Date().toISOString(),
-                });
-              }}
-              className="px-2.5 py-1 bg-alert/10 border border-alert/40 text-alert hover:bg-alert hover:text-bg-void transition-colors font-bold text-[11px] flex items-center gap-1"
-              title="Dev-only test trigger for SurgeToast rehearsal"
-            >
-              <span>⚡</span>
-              <span>[DEV] TEST SURGE TOAST</span>
-            </button>
-          )}
-
-          <button
-            onClick={handleTriggerPipeline}
-            disabled={isPipelineRunning || isTriggering || !isConnected}
-            className="px-3 py-1 bg-accent-amber/10 border border-accent-amber text-accent-amber hover:bg-accent-amber hover:text-bg-void transition-colors font-bold disabled:opacity-40 flex items-center gap-1.5"
-          >
-            {isPipelineRunning || isTriggering ? (
-              <>
-                <span className="w-2 h-2 rounded-full bg-accent-amber animate-ping" />
-                RUNNING...
-              </>
-            ) : (
-              <>
-                <span>▶</span>
-                RUN LIVE PIPELINE
-              </>
-            )}
-          </button>
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="px-2 py-1 text-text-dim hover:text-text-primary transition-colors"

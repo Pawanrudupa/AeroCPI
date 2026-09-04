@@ -19,11 +19,11 @@ interface ElasticityPoint {
 }
 
 const ELASTICITY_DATA: ElasticityPoint[] = [
-  { window: "T+30", daysToDeparture: 30, averageFare: 4120, elasticityIndex: 100.0 },
-  { window: "T+21", daysToDeparture: 21, averageFare: 4450, elasticityIndex: 108.0 },
-  { window: "T+15", daysToDeparture: 15, averageFare: 5080, elasticityIndex: 123.3 },
-  { window: "T+10", daysToDeparture: 10, averageFare: 5420, elasticityIndex: 131.5 },
   { window: "T+7", daysToDeparture: 7, averageFare: 6150, elasticityIndex: 149.2 },
+  { window: "T+10", daysToDeparture: 10, averageFare: 5420, elasticityIndex: 131.5 },
+  { window: "T+15", daysToDeparture: 15, averageFare: 5080, elasticityIndex: 123.3 },
+  { window: "T+21", daysToDeparture: 21, averageFare: 4450, elasticityIndex: 108.0 },
+  { window: "T+30", daysToDeparture: 30, averageFare: 4120, elasticityIndex: 100.0 },
 ];
 
 export const ElasticityCurve: React.FC = () => {
@@ -50,13 +50,18 @@ export const ElasticityCurve: React.FC = () => {
             </defs>
             <CartesianGrid stroke="#262316" strokeDasharray="3 3" vertical={false} />
             <XAxis
-              dataKey="window"
+              type="number"
+              domain={[7, 30]}
+              dataKey="daysToDeparture"
               stroke="#8A8672"
               fontSize={11}
               fontFamily="JetBrains Mono"
               tickLine={false}
+              tickFormatter={(v) => `T+${v}`}
+              reversed={false}
             />
             <YAxis
+              type="number"
               stroke="#8A8672"
               fontSize={11}
               fontFamily="JetBrains Mono"
@@ -73,11 +78,11 @@ export const ElasticityCurve: React.FC = () => {
                 fontFamily: "JetBrains Mono",
                 fontSize: "12px",
               }}
-              formatter={(value: any, name: string) => [
+              formatter={(value: any) => [
                 `₹${Number(value).toLocaleString()}`,
                 "Mean Basket Fare",
               ]}
-              labelFormatter={(label) => `Advance Window: ${label}`}
+              labelFormatter={(label) => `Advance Window: T+${label}`}
             />
             <Area
               type="monotone"

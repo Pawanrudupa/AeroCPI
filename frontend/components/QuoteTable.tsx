@@ -20,14 +20,10 @@ export interface DisplayQuote {
 
 interface QuoteTableProps {
   quotes: DisplayQuote[];
-  onTriggerSync?: () => void;
-  isSyncing?: boolean;
 }
 
 export const QuoteTable: React.FC<QuoteTableProps> = ({
   quotes,
-  onTriggerSync,
-  isSyncing = false,
 }) => {
   const [filterSourceType, setFilterSourceType] = useState<string>("all");
   const [filterRoute, setFilterRoute] = useState<string>("all");
@@ -60,26 +56,6 @@ export const QuoteTable: React.FC<QuoteTableProps> = ({
             <option value="seeded">SEEDED / FALLBACK ONLY</option>
           </select>
 
-          {/* Trigger Sync Button */}
-          {onTriggerSync && (
-            <button
-              onClick={onTriggerSync}
-              disabled={isSyncing}
-              className="px-3 py-1 bg-accent-amber/10 border border-accent-amber text-accent-amber hover:bg-accent-amber hover:text-bg-void transition-colors font-bold disabled:opacity-50 flex items-center gap-1.5"
-            >
-              {isSyncing ? (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-accent-amber animate-ping" />
-                  SYNCING PIPELINE...
-                </>
-              ) : (
-                <>
-                  <span>▶</span>
-                  RUN LIVE PIPELINE
-                </>
-              )}
-            </button>
-          )}
         </div>
       </div>
 
@@ -107,12 +83,12 @@ export const QuoteTable: React.FC<QuoteTableProps> = ({
                   {/* Origin Badge (Mandatory: live vs seeded) */}
                   <td className="py-2.5 px-3">
                     {isLive ? (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-xs text-[10px] font-bold bg-signal-green/10 text-signal-green border border-signal-green/30">
-                        <span className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
+                      <span className="inline-flex items-center gap-1 px-1 py-[1px] rounded-xs text-[9px] font-bold bg-signal-green/10 text-signal-green border border-signal-green/30">
+                        <span className="w-1 h-1 rounded-full bg-signal-green animate-pulse" />
                         LIVE
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-xs text-[10px] font-bold bg-accent-amber/10 text-accent-amber border border-accent-amber/30">
+                      <span className="inline-flex items-center gap-1 px-1 py-[1px] rounded-xs text-[9px] font-bold bg-accent-amber/10 text-accent-amber border border-accent-amber/30">
                         SEEDED
                       </span>
                     )}
@@ -121,13 +97,13 @@ export const QuoteTable: React.FC<QuoteTableProps> = ({
                   <td className="py-2.5 px-3 font-semibold text-text-primary">{q.route}</td>
                   <td className="py-2.5 px-3 text-text-dim">{q.flight_number}</td>
                   <td className="py-2.5 px-3 text-accent-amber font-semibold">{q.window}</td>
-                  <td className="py-2.5 px-3 text-right text-text-dim">
+                  <td className="py-2.5 px-3 text-right tabular-nums text-text-dim">
                     {q.base_fare ? `₹${q.base_fare.toLocaleString()}` : "—"}
                   </td>
-                  <td className="py-2.5 px-3 text-right text-text-dim">
+                  <td className="py-2.5 px-3 text-right tabular-nums text-text-dim">
                     {taxesTotal > 0 ? `₹${taxesTotal.toLocaleString()}` : "—"}
                   </td>
-                  <td className="py-2.5 px-3 text-right font-bold text-text-primary">
+                  <td className="py-2.5 px-3 text-right tabular-nums font-bold text-text-primary">
                     ₹{q.total_fare.toLocaleString()}
                   </td>
                   <td className="py-2.5 px-3 text-center text-text-dim uppercase text-[10px]">

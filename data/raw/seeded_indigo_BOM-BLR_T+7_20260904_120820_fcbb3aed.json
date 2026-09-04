@@ -1,0 +1,27 @@
+{
+  "cached_flights": [
+    {
+      "arrTime": "10:15",
+      "base_fare": 3800.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 200.0,
+      "depTime": "08:30",
+      "flight_no": "6E-5318",
+      "taxes": 600.0,
+      "total_fare": 4950.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "17:45",
+      "base_fare": 3500.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 150.0,
+      "depTime": "16:00",
+      "flight_no": "QP-1120",
+      "taxes": 550.0,
+      "total_fare": 4550.0,
+      "udf": 350.0
+    }
+  ],
+  "fallback_reason": "selector_drift_exhausted"
+}

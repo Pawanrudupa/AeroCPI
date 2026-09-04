@@ -43,6 +43,21 @@ def test_akasa_and_ota_scrapers(session: Session):
     assert res_clear.route == "MAA-DEL"
     assert len(res_clear.parsed_quotes) > 0
 
+    from backend.app.scraper.sources.spicejet import SpiceJetScraper
+    from backend.app.scraper.sources.makemytrip import MakeMyTripScraper
+
+    spice = SpiceJetScraper()
+    res_spice = spice.fetch_quotes("DEL", "BOM", dt.date(2026, 9, 10), "T+7")
+    assert res_spice.source == "spicejet"
+    assert res_spice.route == "DEL-BOM"
+    assert len(res_spice.parsed_quotes) > 0
+
+    mmt = MakeMyTripScraper()
+    res_mmt = mmt.fetch_quotes("BOM", "BLR", dt.date(2026, 9, 18), "T+15")
+    assert res_mmt.source == "makemytrip"
+    assert res_mmt.route == "BOM-BLR"
+    assert len(res_mmt.parsed_quotes) > 0
+
 
 def test_multi_route_pipeline_execution(session: Session):
     """Verify executing pipeline across multiple routes writes valid FareQuote records."""

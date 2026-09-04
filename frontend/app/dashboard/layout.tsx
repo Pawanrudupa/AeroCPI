@@ -8,6 +8,7 @@ import { API_BASE } from "@/lib/api";
 import { DashboardProvider } from "@/lib/dashboard-context";
 import { CommandBar } from "@/components/CommandBar";
 import { SurgeToast } from "@/components/SurgeToast";
+import { HeaderActions } from "@/components/HeaderActions";
 import { DotGridSpotlight } from "@/components/DotGridSpotlight";
 
 /**
@@ -73,9 +74,9 @@ export default function DashboardLayout({
               <div className="flex items-center gap-3">
                 <Link
                   href="/dashboard"
-                  className="text-accent-amber font-bold tracking-wider hover:underline"
+                  className="text-accent-amber font-bold tracking-wider hover:underline flex-shrink-0 whitespace-nowrap"
                 >
-                  [ AeroCPI TERMINAL ]
+                  <h1 className="inline m-0 text-inherit text-xs font-bold">[ AeroCPI TERMINAL ]</h1>
                 </Link>
 
                 <span className="hidden sm:inline text-text-dim">|</span>
@@ -114,16 +115,28 @@ export default function DashboardLayout({
               {/* Right: Navigation + user + logout */}
               <div className="flex items-center gap-3 text-[11px]">
                 {/* Nav links */}
-                <Link
-                  href="/dashboard"
-                  className={`px-2 py-1 transition-colors ${
-                    pathname === "/dashboard"
-                      ? "text-accent-amber border-b border-accent-amber"
-                      : "text-text-dim hover:text-text-primary"
-                  }`}
-                >
-                  INDEX
-                </Link>
+                <nav className="flex items-center gap-1.5 border-r border-line pr-3 mr-1">
+                  <Link
+                    href="/dashboard"
+                    className={`px-2 py-1 transition-colors font-bold ${
+                      pathname === "/dashboard" || pathname.startsWith("/dashboard/route")
+                        ? "text-accent-amber border-b border-accent-amber"
+                        : "text-text-dim hover:text-text-primary hover:bg-panel"
+                    }`}
+                  >
+                    [ DASHBOARD ]
+                  </Link>
+                  <Link
+                    href="/dashboard/reports"
+                    className={`px-2 py-1 transition-colors font-bold ${
+                      pathname.startsWith("/dashboard/reports")
+                        ? "text-accent-amber border-b border-accent-amber"
+                        : "text-text-dim hover:text-text-primary hover:bg-panel"
+                    }`}
+                  >
+                    [ REPORTS ]
+                  </Link>
+                </nav>
 
                 {/* User info */}
                 <span className="text-text-dim hidden sm:inline">
@@ -142,6 +155,8 @@ export default function DashboardLayout({
                 >
                   [ LOGOUT ]
                 </button>
+                
+                <HeaderActions />
               </div>
             </div>
           </header>

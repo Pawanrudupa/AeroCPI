@@ -1,0 +1,16 @@
+{
+  "fallback": "bot_protection",
+  "flights": [
+    {
+      "arrTime": "17:45",
+      "base_fare": 3500.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 100.0,
+      "depTime": "16:00",
+      "flight_no": "QP-1120",
+      "taxes": 550.0,
+      "total_fare": 4500.0,
+      "udf": 350.0
+    }
+  ]
+}

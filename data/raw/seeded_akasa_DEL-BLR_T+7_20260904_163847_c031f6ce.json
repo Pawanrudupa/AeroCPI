@@ -1,0 +1,16 @@
+{
+  "fallback": "bot_protection",
+  "flights": [
+    {
+      "arrTime": "14:10",
+      "base_fare": 4900.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 100.0,
+      "depTime": "11:20",
+      "flight_no": "QP-1354",
+      "taxes": 800.0,
+      "total_fare": 6250.0,
+      "udf": 450.0
+    }
+  ]
+}

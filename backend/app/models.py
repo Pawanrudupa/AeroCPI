@@ -82,7 +82,7 @@ class FareQuote(SQLModel, table=True):
     currency: str = Field(default="INR")
 
     # Traceability & Source Origin (User requirement: live vs seeded)
-    source: str = Field(index=True, nullable=False)  # 'indigo', 'akasa', 'easemytrip', 'cleartrip'
+    source: str = Field(index=True, nullable=False)  # 'indigo', 'akasa', 'spicejet', 'easemytrip', 'cleartrip', 'makemytrip'
     source_type: str = Field(default="live", index=True, nullable=False)  # 'live' | 'seeded'
     scraped_at: dt.datetime = Field(default_factory=now_utc, index=True)
     

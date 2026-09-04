@@ -296,7 +296,7 @@ def get_route_index(
 def get_raw_fares(
     route: Optional[str] = Query(None, description="e.g. DEL-BOM"),
     window: Optional[str] = Query(None, description="T+7, T+15, T+30"),
-    source: Optional[str] = Query(None, description="indigo, akasa, easemytrip, cleartrip"),
+    source: Optional[str] = Query(None, description="indigo, akasa, spicejet, easemytrip, cleartrip, makemytrip"),
     source_type: Optional[str] = Query(None, description="Filter by 'live' or 'seeded'"),
     limit: int = Query(50, ge=1, le=500),
     current_user: User = Depends(get_current_user),

@@ -1,0 +1,60 @@
+{
+  "fallback": "selector_drift",
+  "flights": [
+    {
+      "arrTime": "08:15",
+      "base_fare": 4540.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 549.0,
+      "depTime": "06:00",
+      "flight_no": "6E-205",
+      "taxes": 750.0,
+      "total_fare": 6189.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "11:45",
+      "base_fare": 4790.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 549.0,
+      "depTime": "09:30",
+      "flight_no": "6E-5012",
+      "taxes": 750.0,
+      "total_fare": 6439.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "16:30",
+      "base_fare": 4340.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 499.0,
+      "depTime": "14:15",
+      "flight_no": "QP-1102",
+      "taxes": 700.0,
+      "total_fare": 5889.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "22:00",
+      "base_fare": 4140.0,
+      "carrier": "SpiceJet",
+      "convenience_fee": 499.0,
+      "depTime": "19:40",
+      "flight_no": "SG-8169",
+      "taxes": 700.0,
+      "total_fare": 5689.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "22:15",
+      "base_fare": 5140.0,
+      "carrier": "Air India",
+      "convenience_fee": 549.0,
+      "depTime": "20:00",
+      "flight_no": "AI-805",
+      "taxes": 850.0,
+      "total_fare": 6889.0,
+      "udf": 350.0
+    }
+  ]
+}

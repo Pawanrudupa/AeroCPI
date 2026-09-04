@@ -214,7 +214,7 @@ export default function RouteDetailPage() {
                             <span className={isCheapest ? "text-signal-green font-bold" : "text-text-primary font-bold"}>{src.source}</span>
                             <span className={isCheapest ? "text-signal-green font-bold" : "text-text-primary"}>₹{Math.round(src.avgTotal).toLocaleString()}</span>
                           </div>
-                          <div className="flex justify-between text-[10px] text-text-dim">
+                          <div className="flex justify-between text-[10px] text-text-dim tabular-nums">
                             <span>Base: ₹{Math.round(src.avgBase).toLocaleString()}</span>
                             <span>Taxes/Fees: ₹{Math.round(src.avgTaxes).toLocaleString()}</span>
                           </div>

@@ -1,0 +1,49 @@
+{
+  "fallback": "bot_protection",
+  "flights": [
+    {
+      "arrTime": "10:05",
+      "base_fare": 5080.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 449.0,
+      "depTime": "07:15",
+      "flight_no": "6E-2134",
+      "taxes": 850.0,
+      "total_fare": 6829.0,
+      "udf": 450.0
+    },
+    {
+      "arrTime": "14:10",
+      "base_fare": 4780.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 399.0,
+      "depTime": "11:20",
+      "flight_no": "QP-1354",
+      "taxes": 800.0,
+      "total_fare": 6429.0,
+      "udf": 450.0
+    },
+    {
+      "arrTime": "17:50",
+      "base_fare": 4630.0,
+      "carrier": "SpiceJet",
+      "convenience_fee": 399.0,
+      "depTime": "15:00",
+      "flight_no": "SG-502",
+      "taxes": 800.0,
+      "total_fare": 6279.0,
+      "udf": 450.0
+    },
+    {
+      "arrTime": "20:35",
+      "base_fare": 5480.0,
+      "carrier": "Air India",
+      "convenience_fee": 449.0,
+      "depTime": "17:45",
+      "flight_no": "AI-506",
+      "taxes": 900.0,
+      "total_fare": 7279.0,
+      "udf": 450.0
+    }
+  ]
+}

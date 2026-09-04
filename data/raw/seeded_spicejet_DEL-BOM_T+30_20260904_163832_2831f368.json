@@ -1,0 +1,16 @@
+{
+  "fallback": "empty_extract",
+  "flights": [
+    {
+      "arrTime": "22:00",
+      "base_fare": 2800.0,
+      "carrier": "SpiceJet",
+      "convenience_fee": 100.0,
+      "depTime": "19:40",
+      "flight_no": "SG-8169",
+      "taxes": 500.0,
+      "total_fare": 3750.0,
+      "udf": 350.0
+    }
+  ]
+}

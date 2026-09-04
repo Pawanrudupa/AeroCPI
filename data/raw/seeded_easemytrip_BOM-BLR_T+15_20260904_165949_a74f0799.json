@@ -1,0 +1,38 @@
+{
+  "fallback": "bot_protection",
+  "flights": [
+    {
+      "arrTime": "10:15",
+      "base_fare": 2880.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 449.0,
+      "depTime": "08:30",
+      "flight_no": "6E-5318",
+      "taxes": 500.0,
+      "total_fare": 4179.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "17:45",
+      "base_fare": 2680.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 399.0,
+      "depTime": "16:00",
+      "flight_no": "QP-1120",
+      "taxes": 450.0,
+      "total_fare": 3879.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "21:00",
+      "base_fare": 2630.0,
+      "carrier": "SpiceJet",
+      "convenience_fee": 399.0,
+      "depTime": "19:15",
+      "flight_no": "SG-3011",
+      "taxes": 450.0,
+      "total_fare": 3829.0,
+      "udf": 350.0
+    }
+  ]
+}
