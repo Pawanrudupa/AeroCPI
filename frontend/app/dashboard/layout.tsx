@@ -8,6 +8,7 @@ import { API_BASE } from "@/lib/api";
 import { DashboardProvider } from "@/lib/dashboard-context";
 import { CommandBar } from "@/components/CommandBar";
 import { SurgeToast } from "@/components/SurgeToast";
+import { DotGridSpotlight } from "@/components/DotGridSpotlight";
 
 /**
  * Dashboard layout — wraps all /dashboard/* routes.
@@ -61,7 +62,7 @@ export default function DashboardLayout({
 
   return (
     <DashboardProvider>
-      <div className="min-h-screen bg-bg-void text-text-primary">
+      <div className="min-h-screen bg-bg-void text-text-primary flex flex-col">
         {/* ============================================================ */}
         {/*  DASHBOARD NAV & COMMAND BAR                                  */}
         {/* ============================================================ */}
@@ -153,14 +154,22 @@ export default function DashboardLayout({
         </div>
 
       {/* ============================================================ */}
-      {/*  PAGE CONTENT                                                 */}
+      {/*  PAGE CONTENT WITH SIDE GUTTER DOT MATRIX                     */}
       {/* ============================================================ */}
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">{children}</div>
+      <div className="flex-1 relative w-full bg-bg-void">
+        <DotGridSpotlight className="w-full h-full min-h-[calc(100vh-180px)]">
+          <div className="flex justify-center w-full min-h-full">
+            <main className="w-full max-w-7xl px-4 md:px-8 py-8 bg-bg-void relative z-10">
+              {children}
+            </main>
+          </div>
+        </DotGridSpotlight>
+      </div>
 
       {/* ============================================================ */}
       {/*  DASHBOARD FOOTER                                             */}
       {/* ============================================================ */}
-      <footer className="border-t border-line bg-panel px-4 md:px-8 py-5 font-mono text-xs text-text-dim">
+      <footer className="border-t border-line bg-panel px-4 md:px-8 py-5 font-mono text-xs text-text-dim relative z-20">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div>
             <span className="text-text-primary font-bold">
