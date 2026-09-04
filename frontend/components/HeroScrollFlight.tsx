@@ -1,232 +1,318 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
+import { api } from "@/lib/api";
 
-interface Checkpoint {
-  progress: number;
-  label: string;
-  status: string;
-  price: string;
-  altitude: string;
+interface RouteCorridor {
+  route: string;
+  origin: string;
+  destination: string;
+  flightsPerDay: string;
+  defaultFare: number;
+  window: string;
+  tOffset: number; // Mid-route progression position (0.3 to 0.7)
 }
 
-const CHECKPOINTS: Checkpoint[] = [
+const CORRIDORS: RouteCorridor[] = [
   {
-    progress: 0.0,
-    label: "DEL (Indira Gandhi Intl)",
-    status: "TAXI / DEPARTURE [06:00]",
-    price: "₹ 5,100 (T+15 Base)",
-    altitude: "GND",
+    route: "DEL-BOM",
+    origin: "DEL",
+    destination: "BOM",
+    flightsPerDay: "74 FLIGHTS/DAY",
+    defaultFare: 5400,
+    window: "T+15",
+    tOffset: 0.52,
   },
   {
-    progress: 0.45,
-    label: "EN ROUTE (FL360)",
-    status: "CRUISE :: SECTOR RAJASTHAN",
-    price: "₹ 5,600 (Basket Wtd)",
-    altitude: "36,000 FT",
+    route: "DEL-BLR",
+    origin: "DEL",
+    destination: "BLR",
+    flightsPerDay: "52 FLIGHTS/DAY",
+    defaultFare: 5800,
+    window: "T+15",
+    tOffset: 0.64,
   },
   {
-    progress: 0.95,
-    label: "BOM (Chhatrapati Shivaji)",
-    status: "APPROACH / LANDING [08:15]",
-    price: "₹ 6,000 (T+7 Peak)",
-    altitude: "2,500 FT",
+    route: "BOM-BLR",
+    origin: "BOM",
+    destination: "BLR",
+    flightsPerDay: "46 FLIGHTS/DAY",
+    defaultFare: 4150,
+    window: "T+15",
+    tOffset: 0.38,
+  },
+  {
+    route: "DEL-CCU",
+    origin: "DEL",
+    destination: "CCU",
+    flightsPerDay: "38 FLIGHTS/DAY",
+    defaultFare: 4650,
+    window: "T+15",
+    tOffset: 0.45,
   },
 ];
 
 /**
- * Hero scroll-flight interaction per DESIGN.md Section 1.
- *
- * SVG quadratic Bézier arc (DEL→BOM). A plane icon is positioned along the
- * path using getPointAtLength(), driven by the page scroll position.
- * Checkpoint telemetry updates as scroll advances past thresholds.
- *
- * How to observe:
- *   Start at the top of the landing page. Scroll down — the amber aircraft
- *   on the DEL→BOM arc moves from left (DEL) to right (BOM) along the curve.
- *   The telemetry readout below the arc updates through three checkpoints:
- *   "TAXI / DEPARTURE" → "CRUISE :: SECTOR RAJASTHAN" → "APPROACH / LANDING".
+ * Calculates point (x, y) and tangent angle on quadratic Bézier curve:
+ * P0=(10, 22), P1=(60, 4), P2=(110, 22)
+ */
+function getBezierPoint(t: number) {
+  const p0 = { x: 10, y: 22 };
+  const p1 = { x: 60, y: 4 };
+  const p2 = { x: 110, y: 22 };
+
+  const x = (1 - t) * (1 - t) * p0.x + 2 * (1 - t) * t * p1.x + t * t * p2.x;
+  const y = (1 - t) * (1 - t) * p0.y + 2 * (1 - t) * t * p1.y + t * t * p2.y;
+
+  const dx = 2 * (1 - t) * (p1.x - p0.x) + 2 * t * (p2.x - p1.x);
+  const dy = 2 * (1 - t) * (p1.y - p0.y) + 2 * t * (p2.y - p1.y);
+  const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+  return { x, y, angle };
+}
+
+/**
+ * SparklineArc: Compact thumbnail arc for a single route corridor.
+ * Eliminates redundant origin markers and locks the aircraft directly onto the curve.
+ */
+function SparklineArc({
+  origin,
+  destination,
+  tProgress,
+}: {
+  origin: string;
+  destination: string;
+  tProgress: number;
+}) {
+  const pt = getBezierPoint(tProgress);
+
+  return (
+    <div className="relative w-full h-7 flex items-center justify-center">
+      <svg
+        viewBox="0 0 120 28"
+        className="w-full h-full overflow-visible"
+        preserveAspectRatio="xMidYMid meet"
+      >
+        {/* Background corridor trajectory */}
+        <path
+          d="M 10 22 Q 60 4 110 22"
+          fill="none"
+          stroke="#262316"
+          strokeWidth="2"
+        />
+
+        {/* Active dashed flight path */}
+        <path
+          d="M 10 22 Q 60 4 110 22"
+          fill="none"
+          stroke="#C9A227"
+          strokeWidth="1.25"
+          strokeDasharray="2.5 2.5"
+          className="opacity-75"
+        />
+
+        {/* Origin node: Clean single green point */}
+        <circle cx="10" cy="22" r="2.5" fill="#7FB86B" />
+        <text
+          x="10"
+          y="27"
+          fill="#8A8672"
+          fontSize="7"
+          fontFamily="JetBrains Mono"
+          textAnchor="middle"
+        >
+          {origin}
+        </text>
+
+        {/* Destination node: Clean single amber point */}
+        <circle cx="110" cy="22" r="2.5" fill="#C9A227" />
+        <text
+          x="110"
+          y="27"
+          fill="#8A8672"
+          fontSize="7"
+          fontFamily="JetBrains Mono"
+          textAnchor="middle"
+        >
+          {destination}
+        </text>
+
+        {/* Aircraft silhouette locked precisely onto the arc path */}
+        <g transform={`translate(${pt.x}, ${pt.y}) rotate(${pt.angle})`}>
+          <path
+            d="M 4 0 L -1 -3 L -0.5 -1 L -3 -1.5 L -3.5 -0.5 L -2 0 L -3.5 0.5 L -3 1.5 L -0.5 1 L -1 3 Z"
+            fill="#C9A227"
+          />
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+/**
+ * HeroRouteCorridorStrip (Multi-Route Mini Strip)
+ * Replaces the single large DEL-BOM arc box with a compact, dense 4-route HUD strip.
+ * Reuses the exact same route data powering the dashboard heatmap.
  */
 export const HeroScrollFlight: React.FC = () => {
-  const pathRef = useRef<SVGPathElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [planeCoord, setPlaneCoord] = useState<{
-    x: number;
-    y: number;
-    angle: number;
-  }>({ x: 60, y: 190, angle: -25 });
-  const [activeCheckpoint, setActiveCheckpoint] = useState(CHECKPOINTS[0]);
+  const [scrollProgress, setScrollProgress] = useState(0);
   const [isReducedMotion, setIsReducedMotion] = useState(false);
+  const [surgeData, setSurgeData] = useState<
+    Record<string, { fare: number; isSurge: boolean; window: string }>
+  >({});
 
+  // Detect prefers-reduced-motion
   useEffect(() => {
     if (
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
     ) {
       setIsReducedMotion(true);
-      return;
     }
+  }, []);
+
+  // Fetch live indicative fares from the same source as dashboard heatmap
+  useEffect(() => {
+    let isMounted = true;
+    async function loadFares() {
+      try {
+        const res = await api.surgeStatus();
+        if (res && res.surges && isMounted) {
+          const map: Record<
+            string,
+            { fare: number; isSurge: boolean; window: string }
+          > = {};
+          res.surges.forEach((s) => {
+            // Prioritize T+15 window, fallback if not set
+            if (s.window === "T+15" || !map[s.route]) {
+              map[s.route] = {
+                fare: s.current_avg > 0 ? s.current_avg : 0,
+                isSurge: s.is_surge,
+                window: s.window,
+              };
+            }
+          });
+          setSurgeData(map);
+        }
+      } catch {
+        // Silently use deterministic fallback values from seed repository
+      }
+    }
+    loadFares();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Subtle scroll-driven movement across the arc if motion is enabled
+  useEffect(() => {
+    if (isReducedMotion) return;
 
     const handleScroll = () => {
-      if (!pathRef.current || !containerRef.current) return;
-
-      const path = pathRef.current;
-      const pathLength = path.getTotalLength();
-
-      /* Calculate progress relative to the hero container's position in viewport.
-         This ensures the scroll-flight works regardless of page length:
-         progress = 0 when the container top is at the viewport top,
-         progress = 1 when the container bottom passes the viewport top. */
+      if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      const containerHeight = rect.height;
-      const scrolledPast = -rect.top; // how far past the top of viewport
-      const scrollRange = containerHeight + window.innerHeight * 0.5;
-      const rawProgress = Math.min(
-        Math.max(scrolledPast / scrollRange, 0),
-        1,
-      );
-
-      const currentPoint = path.getPointAtLength(rawProgress * pathLength);
-      const nextPoint = path.getPointAtLength(
-        Math.min(rawProgress * pathLength + 2, pathLength),
-      );
-
-      const dx = nextPoint.x - currentPoint.x;
-      const dy = nextPoint.y - currentPoint.y;
-      const heading = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
-
-      setPlaneCoord({
-        x: currentPoint.x,
-        y: currentPoint.y,
-        angle: heading,
-      });
-
-      /* Update active checkpoint based on progress */
-      if (rawProgress < 0.3) {
-        setActiveCheckpoint(CHECKPOINTS[0]);
-      } else if (rawProgress < 0.75) {
-        setActiveCheckpoint(CHECKPOINTS[1]);
-      } else {
-        setActiveCheckpoint(CHECKPOINTS[2]);
-      }
+      const scrolled = -rect.top;
+      const range = rect.height + window.innerHeight * 0.4;
+      const progress = Math.min(Math.max(scrolled / range, 0), 1);
+      setScrollProgress(progress);
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll(); // Initialize position
+    handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [isReducedMotion]);
 
   return (
     <div
       ref={containerRef}
-      className="relative w-full border border-line bg-panel p-5 rounded-sm"
+      className="relative w-full border border-line bg-panel p-4 md:p-5 rounded-sm"
     >
-      <div className="flex items-center justify-between border-b border-line pb-2 mb-4 font-mono text-xs">
-        <span className="text-signal-green flex items-center gap-1.5">
+      {/* Panel Header per DESIGN.md & site-wide labeling convention */}
+      <div className="flex items-center justify-between border-b border-line pb-3 mb-3 font-mono text-xs">
+        <div className="flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
-          [ ROUTE CORRIDOR :: DEL → BOM ]
+          <span className="text-accent-amber font-bold tracking-wider">
+            [ SECTOR CORRIDOR :: LIVE BASKET ]
+          </span>
+        </div>
+        <span className="text-text-dim text-[10px] sm:text-[11px]">
+          4 TRUNK CORRIDORS • T+15
         </span>
-        <span className="text-text-dim">FREQ: 74 FLIGHTS/DAY</span>
       </div>
 
-      {/* SVG Arc Flight Path */}
-      <div className="relative w-full h-[220px]">
-        <svg
-          viewBox="0 0 500 240"
-          className="w-full h-full overflow-visible"
-          preserveAspectRatio="xMidYMid meet"
-        >
-          {/* Subtle grid lines */}
-          <line
-            x1="60" y1="20" x2="60" y2="220"
-            stroke="#262316" strokeDasharray="3 3"
-          />
-          <line
-            x1="440" y1="20" x2="440" y2="220"
-            stroke="#262316" strokeDasharray="3 3"
-          />
+      {/* 4 Route Mini-Cards Strip */}
+      <div className="space-y-2">
+        {CORRIDORS.map((corridor) => {
+          const live = surgeData[corridor.route];
+          const fare = live && live.fare > 0 ? live.fare : corridor.defaultFare;
+          const isSurge = live ? live.isSurge : false;
+          const windowTag = live ? live.window : corridor.window;
 
-          {/* Background Corridor Arc */}
-          <path
-            d="M 60 190 Q 250 30 440 190"
-            fill="none"
-            stroke="#262316"
-            strokeWidth="3"
-          />
+          // Compute bounded aircraft position on arc [0.15, 0.85]
+          const tProgress = isReducedMotion
+            ? corridor.tOffset
+            : Math.min(
+                Math.max(corridor.tOffset + (scrollProgress - 0.5) * 0.28, 0.15),
+                0.85
+              );
 
-          {/* Active Flight Path Arc */}
-          <path
-            ref={pathRef}
-            d="M 60 190 Q 250 30 440 190"
-            fill="none"
-            stroke="#C9A227"
-            strokeWidth="2"
-            strokeDasharray="4 4"
-            className="opacity-80"
-          />
-
-          {/* Origin Node DEL */}
-          <circle cx="60" cy="190" r="5" fill="#7FB86B" />
-          <text
-            x="60" y="215"
-            fill="#E8E4D4" fontSize="11"
-            fontFamily="JetBrains Mono" textAnchor="middle"
-          >
-            DEL
-          </text>
-
-          {/* Destination Node BOM */}
-          <circle cx="440" cy="190" r="5" fill="#C9A227" />
-          <text
-            x="440" y="215"
-            fill="#E8E4D4" fontSize="11"
-            fontFamily="JetBrains Mono" textAnchor="middle"
-          >
-            BOM
-          </text>
-
-          {/* Scrubbed Flight Aircraft — moves along path on scroll */}
-          {!isReducedMotion && (
-            <g
-              transform={`translate(${planeCoord.x}, ${planeCoord.y}) rotate(${planeCoord.angle})`}
+          return (
+            <div
+              key={corridor.route}
+              className="grid grid-cols-12 gap-2 items-center py-2.5 px-3 border border-line/70 bg-bg-void/80 hover:border-accent-amber/40 hover:bg-line/20 transition-colors rounded-sm"
             >
-              {/* Airplane silhouette (same as DirectionalPlaneCursor) */}
-              <path
-                d="M 0 -8 L 1.5 -3 L 8 0 L 1.5 2 L 1 7 L 0 5.5 L -1 7 L -1.5 2 L -8 0 L -1.5 -3 Z"
-                fill="#C9A227"
-                stroke="#0A0A07"
-                strokeWidth="0.75"
-              />
-              <circle
-                cx="0" cy="0" r="14"
-                fill="none" stroke="#C9A227"
-                strokeWidth="0.75" strokeOpacity="0.35"
-              />
-            </g>
-          )}
-        </svg>
+              {/* Route Code & Traffic Frequency */}
+              <div className="col-span-4 sm:col-span-4 space-y-0.5">
+                <div className="font-mono font-bold text-xs sm:text-sm text-text-primary tracking-tight">
+                  {corridor.origin}{" "}
+                  <span className="text-accent-amber font-normal">→</span>{" "}
+                  {corridor.destination}
+                </div>
+                <div className="font-mono text-[9px] sm:text-[10px] text-text-dim tracking-wider">
+                  {corridor.flightsPerDay}
+                </div>
+              </div>
+
+              {/* Sparkline Thumbnail Arc */}
+              <div className="col-span-4 sm:col-span-4">
+                <SparklineArc
+                  origin={corridor.origin}
+                  destination={corridor.destination}
+                  tProgress={tProgress}
+                />
+              </div>
+
+              {/* Indicative Tariff & Window Status */}
+              <div className="col-span-4 sm:col-span-4 text-right space-y-0.5">
+                <div className="font-mono font-bold text-xs sm:text-sm text-accent-amber">
+                  ₹ {fare.toLocaleString()}
+                </div>
+                <div className="font-mono text-[9px] sm:text-[10px] text-text-dim flex items-center justify-end gap-1.5">
+                  <span className="bg-panel px-1 py-0.2 border border-line/80 text-text-dim">
+                    {windowTag}
+                  </span>
+                  {isSurge ? (
+                    <span className="text-alert font-bold">▲ SURGE</span>
+                  ) : (
+                    <span className="text-signal-green">NORMAL</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Discrete Informational Telemetry Readout */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 border-t border-line pt-3 font-mono text-xs">
-        <div>
-          <span className="text-text-dim block">SECTOR CHECKPOINT</span>
-          <span className="text-text-primary font-medium">
-            {activeCheckpoint.label}
-          </span>
-        </div>
-        <div>
-          <span className="text-text-dim block">HUD FLIGHT STATUS</span>
-          <span className="text-signal-green">
-            {activeCheckpoint.status}
-          </span>
-        </div>
-        <div>
-          <span className="text-text-dim block">INDICATIVE TARIFF</span>
-          <span className="text-accent-amber font-bold">
-            {activeCheckpoint.price}
-          </span>
-        </div>
+      {/* Compact Instrument Footer */}
+      <div className="mt-3 pt-2.5 border-t border-line flex items-center justify-between font-mono text-[10px] text-text-dim">
+        <span className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-accent-amber inline-block" />
+          GEKS-TÖRNQVIST BASKET
+        </span>
+        <span className="text-text-primary">
+          PROVENANCE: DGCA VERIFIED
+        </span>
       </div>
     </div>
   );

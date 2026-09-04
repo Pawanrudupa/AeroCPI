@@ -142,10 +142,10 @@ export const api = {
       { method: "POST" },
     ),
 
-  surgeStatus: (token: string) =>
+  surgeStatus: (token?: string | null) =>
     apiFetch<{ surges: Array<{ route: string; window: string; is_surge: boolean; current_avg: number; baseline_avg: number; pct_above: number }> }>(
       "/pipeline/surge-status",
-      token,
+      token || null,
     ),
 };
 

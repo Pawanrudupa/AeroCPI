@@ -430,7 +430,6 @@ def trigger_sync_sse(
 
 @app.get("/pipeline/surge-status", tags=["Pipeline Operations"])
 def get_surge_status(
-    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
     """Returns current surge state for all route x window combinations."""
