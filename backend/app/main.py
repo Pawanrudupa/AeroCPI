@@ -177,6 +177,62 @@ def json_login(
     )
 
 
+# Manual TTL cache for public activity summary
+ACTIVITY_CACHE = {
+    "data": None,
+    "timestamp": None
+}
+CACHE_TTL_SECONDS = 60
+
+@app.get("/public/activity-summary", tags=["Public"])
+def get_public_activity_summary(session: Session = Depends(get_session)):
+    """
+    Unauthenticated read-only endpoint for the landing page activity strip.
+    Returns metadata only (no fares). Uses a manual 60s TTL cache to protect the DB.
+    """
+    global ACTIVITY_CACHE
+    now = dt.datetime.now(dt.timezone.utc)
+    
+    # Check cache
+    if ACTIVITY_CACHE["data"] and ACTIVITY_CACHE["timestamp"]:
+        if (now - ACTIVITY_CACHE["timestamp"]).total_seconds() < CACHE_TTL_SECONDS:
+            return ACTIVITY_CACHE["data"]
+
+    # Cache miss, query DB
+    recent_quotes = session.exec(
+        select(FareQuote).order_by(FareQuote.scraped_at.desc()).limit(20)
+    ).all()
+    
+    latest_index = session.exec(
+        select(IndexDaily).order_by(IndexDaily.date.desc()).limit(1)
+    ).first()
+    
+    current_index_value = latest_index.index_value if latest_index else 100.0
+
+    activity_list = [
+        {
+            "timestamp": quote.scraped_at.isoformat() if quote.scraped_at else None,
+            "route": quote.route,
+            "window": quote.window,
+            "source": quote.source.upper() if quote.source else "UNKNOWN",
+            "status": quote.source_type.upper() if quote.source_type else "SEEDED"
+        }
+        for quote in recent_quotes
+    ]
+
+    response_data = {
+        "last_updated": now.isoformat(),
+        "current_index_value": round(current_index_value, 2),
+        "recent_activity": activity_list
+    }
+
+    # Update cache
+    ACTIVITY_CACHE["data"] = response_data
+    ACTIVITY_CACHE["timestamp"] = now
+
+    return response_data
+
+
 # -----------------------------------------------------------------------------
 # Gated Endpoints (FEATURES.md Must-Have)
 # -----------------------------------------------------------------------------

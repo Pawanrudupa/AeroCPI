@@ -20,6 +20,15 @@ module.exports = {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', 'monospace'],
       },
+      keyframes: {
+        marquee: {
+          '0%': { transform: 'translateX(0%)' },
+          '100%': { transform: 'translateX(-50%)' }, // scroll half because we duplicated the array
+        }
+      },
+      animation: {
+        marquee: 'marquee linear infinite',
+      }
     },
   },
   plugins: [],
