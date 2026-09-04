@@ -9,9 +9,13 @@ export function CommandBar() {
   const [response, setResponse] = useState<{ msg: string; type: "error" | "success" | "info" } | null>(null);
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const { setSurgeFilter } = useDashboard();
+  const { setSurgeFilter, addPipelineEvent } = useDashboard();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const isDev =
+    process.env.NODE_ENV !== "production" ||
+    process.env.NEXT_PUBLIC_DEV_MODE === "true";
 
   useEffect(() => {
     if (response) {
@@ -37,6 +41,26 @@ export function CommandBar() {
       const pair = parts[1].toUpperCase();
       router.push(`/dashboard/route/${pair}`);
       setResponse({ msg: `Navigating to ${pair}...`, type: "success" });
+    } else if (cmd === "surge" && parts[1]?.toLowerCase() === "test") {
+      if (!isDev) {
+        setResponse({ msg: "Dev commands are disabled in production build", type: "error" });
+      } else {
+        const testRoute = (parts[2] || "DEL-BOM").toUpperCase();
+        const syntheticPct = "28.5";
+        addPipelineEvent({
+          event_type: "surge_detected",
+          message: `▲ SURGE :: ${testRoute} — ${syntheticPct}% ABOVE BASELINE [DEV TEST]`,
+          route: testRoute,
+          source: "dev-mock",
+          window: "T+7",
+          data: { current: 7800, baseline: 6070, pct_above: syntheticPct },
+          timestamp: new Date().toLocaleTimeString("en-GB"),
+        });
+        setResponse({
+          msg: `[DEV] Fired synthetic surge_detected event for ${testRoute}`,
+          type: "success",
+        });
+      }
     } else if (cmd === "surge") {
       setSurgeFilter(true);
       setResponse({ msg: "Surge filter enabled", type: "success" });
@@ -45,7 +69,9 @@ export function CommandBar() {
       setResponse({ msg: "Surge filter disabled", type: "success" });
     } else if (cmd === "help") {
       setResponse({
-        msg: "Commands: route <PAIR>, surge, clear, help",
+        msg: isDev
+          ? "Commands: route <PAIR>, surge, clear, surge test [PAIR], help"
+          : "Commands: route <PAIR>, surge, clear, help",
         type: "info",
       });
     } else {

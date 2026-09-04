@@ -1,0 +1,27 @@
+{
+  "fallback": "bot_protection",
+  "flights": [
+    {
+      "arrTime": "09:05",
+      "base_fare": 5400.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 300.0,
+      "depTime": "06:15",
+      "flight_no": "6E-6814",
+      "taxes": 850.0,
+      "total_fare": 6950.0,
+      "udf": 400.0
+    },
+    {
+      "arrTime": "20:50",
+      "base_fare": 5600.0,
+      "carrier": "Air India",
+      "convenience_fee": 300.0,
+      "depTime": "18:00",
+      "flight_no": "AI-440",
+      "taxes": 900.0,
+      "total_fare": 7200.0,
+      "udf": 400.0
+    }
+  ]
+}

@@ -170,6 +170,30 @@ export const PipelineLogConsole: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 font-mono text-xs">
+          {/* Dev-only surge toast test trigger */}
+          {(process.env.NODE_ENV !== "production" ||
+            process.env.NEXT_PUBLIC_DEV_MODE === "true") && (
+            <button
+              onClick={() => {
+                addPipelineEvent({
+                  event_type: "surge_detected",
+                  message:
+                    "▲ SURGE :: DEL-BOM — 28.5% ABOVE BASELINE [DEV TEST TRIGGER]",
+                  route: "DEL-BOM",
+                  source: "dev-test",
+                  window: "T+7",
+                  data: { current: 7800, baseline: 6070, pct_above: "28.5" },
+                  timestamp: new Date().toLocaleTimeString("en-GB"),
+                });
+              }}
+              className="px-2.5 py-1 bg-alert/10 border border-alert/40 text-alert hover:bg-alert hover:text-bg-void transition-colors font-bold text-[11px] flex items-center gap-1"
+              title="Dev-only test trigger for SurgeToast rehearsal"
+            >
+              <span>⚡</span>
+              <span>[DEV] TEST SURGE TOAST</span>
+            </button>
+          )}
+
           <button
             onClick={handleTriggerPipeline}
             disabled={isPipelineRunning || isTriggering || !isConnected}

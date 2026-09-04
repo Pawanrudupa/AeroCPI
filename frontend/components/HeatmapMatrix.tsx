@@ -18,9 +18,16 @@ const WINDOWS = ["T+7", "T+15", "T+30"];
 
 export const HeatmapMatrix: React.FC = () => {
   const { token } = useAuth();
-  const { surgeFilterActive } = useDashboard();
+  const { surgeFilterActive, pipelineEvents } = useDashboard();
   const [data, setData] = useState<HeatmapCell[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Track any new surges that happen during a live pipeline run
+  const liveSurgedRoutes = new Set(
+    pipelineEvents
+      .filter(e => e.event_type === "surge_detected" && e.route)
+      .map(e => e.route)
+  );
 
   useEffect(() => {
     if (!token) return;
@@ -85,7 +92,7 @@ export const HeatmapMatrix: React.FC = () => {
             <tbody>
               {ROUTES.map((route) => {
                 const routeCells = data.filter(c => c.route === route);
-                const isSurging = routeCells.some(c => c.surge);
+                const isSurging = routeCells.some(c => c.surge) || liveSurgedRoutes.has(route);
                 const isDimmed = surgeFilterActive && !isSurging;
 
                 return (
@@ -101,7 +108,8 @@ export const HeatmapMatrix: React.FC = () => {
                     {WINDOWS.map((win) => {
                       const cell = routeCells.find((c) => c.window === win);
                       const fare = cell ? cell.avgFare : 0;
-                      const surge = cell ? cell.surge : false;
+                      // Mark cell as surging if it was previously surging OR the route just surged live
+                      const surge = (cell ? cell.surge : false) || liveSurgedRoutes.has(route);
                       return (
                         <td key={win} className="p-1 text-center">
                           <div
