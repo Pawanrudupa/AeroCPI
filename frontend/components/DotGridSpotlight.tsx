@@ -76,7 +76,7 @@ export const DotGridSpotlight: React.FC<{
       {/* Layer 1: Dim base dot grid — always visible */}
       <div
         className="absolute inset-0 dot-grid-base pointer-events-none"
-        style={{ zIndex: 0, opacity: 0.65 }}
+        style={{ zIndex: 0, opacity: 1 }}
       />
 
       {/* Layer 2: Bright amber spotlight dot grid — masked to follow cursor */}
