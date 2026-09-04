@@ -52,6 +52,8 @@ const CORRIDORS: RouteCorridor[] = [
   },
 ];
 
+import { DecryptText } from "@/components/DecryptText";
+
 /**
  * Calculates point (x, y) and tangent angle on quadratic Bézier curve:
  * P0=(10, 22), P1=(60, 4), P2=(110, 22)
@@ -111,7 +113,7 @@ function SparklineArc({
           className="opacity-75"
         />
 
-        {/* Origin node: Clean single green point */}
+        {/* Origin node */}
         <circle cx="10" cy="22" r="2.5" fill="#7FB86B" />
         <text
           x="10"
@@ -124,7 +126,7 @@ function SparklineArc({
           {origin}
         </text>
 
-        {/* Destination node: Clean single amber point */}
+        {/* Destination node */}
         <circle cx="110" cy="22" r="2.5" fill="#C9A227" />
         <text
           x="110"
@@ -145,6 +147,137 @@ function SparklineArc({
           />
         </g>
       </svg>
+    </div>
+  );
+}
+
+/**
+ * RouteRow: Individual hoverable route row managing its own flight-sweep
+ * and decrypt-flicker states.
+ */
+function RouteRow({
+  corridor,
+  fare,
+  isSurge,
+  windowTag,
+  scrollProgress,
+  isReducedMotion,
+}: {
+  corridor: RouteCorridor;
+  fare: number;
+  isSurge: boolean;
+  windowTag: string;
+  scrollProgress: number;
+  isReducedMotion: boolean;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [scrambleTrigger, setScrambleTrigger] = useState(0);
+  const [hoverT, setHoverT] = useState(0); // 0 to 1 progress of the hover sweep
+  const animRef = useRef<number>();
+
+  // Base progress driven by scroll
+  const baseTProgress = isReducedMotion
+    ? corridor.tOffset
+    : Math.min(
+        Math.max(corridor.tOffset + (scrollProgress - 0.5) * 0.28, 0.15),
+        0.85
+      );
+
+  // Animate flight sweep on hover
+  useEffect(() => {
+    if (isReducedMotion) return;
+
+    let start = performance.now();
+    let initialT = hoverT;
+    const targetT = isHovered ? 1 : 0;
+    const duration = 500; // ms
+
+    if (initialT === targetT) return;
+
+    function draw(now: number) {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // easeOutCubic for smooth deceleration
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+      
+      const newT = initialT + (targetT - initialT) * easeProgress;
+      setHoverT(newT);
+
+      if (progress < 1) {
+        animRef.current = requestAnimationFrame(draw);
+      }
+    }
+    
+    if (animRef.current) cancelAnimationFrame(animRef.current);
+    animRef.current = requestAnimationFrame(draw);
+
+    return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+    };
+  }, [isHovered, isReducedMotion]); // intentionally omit hoverT to avoid retriggers
+
+  // The actual aircraft position blends between base scroll pos and destination (0.85) based on hoverT
+  const currentTProgress = baseTProgress + (0.85 - baseTProgress) * hoverT;
+
+  return (
+    <div
+      onMouseEnter={() => {
+        setIsHovered(true);
+        if (!isReducedMotion) {
+          setScrambleTrigger((prev) => prev + 1);
+        }
+      }}
+      onMouseLeave={() => setIsHovered(false)}
+      className={`grid grid-cols-12 gap-2 items-center py-2.5 px-3 border transition-all duration-300 rounded-sm cursor-default ${
+        isHovered
+          ? "border-accent-amber/60 bg-accent-amber/[0.04] shadow-[0_0_12px_rgba(201,162,39,0.1)]"
+          : "border-line/70 bg-bg-void/80"
+      }`}
+    >
+      {/* Route Code & Traffic Frequency */}
+      <div className="col-span-4 sm:col-span-4 space-y-0.5">
+        <div className="font-mono font-bold text-xs sm:text-sm text-text-primary tracking-tight">
+          {corridor.origin}{" "}
+          <span className="text-accent-amber font-normal">→</span>{" "}
+          {corridor.destination}
+        </div>
+        <div className="font-mono text-[9px] sm:text-[10px] text-text-dim tracking-wider">
+          {corridor.flightsPerDay}
+        </div>
+      </div>
+
+      {/* Sparkline Thumbnail Arc */}
+      <div className="col-span-4 sm:col-span-4">
+        <SparklineArc
+          origin={corridor.origin}
+          destination={corridor.destination}
+          tProgress={currentTProgress}
+        />
+      </div>
+
+      {/* Indicative Tariff & Window Status */}
+      <div className="col-span-4 sm:col-span-4 text-right space-y-0.5">
+        <div className="font-mono font-bold text-xs sm:text-sm text-accent-amber">
+          <DecryptText
+            text={`₹ ${fare.toLocaleString()}`}
+            triggerOnHover={false} // hover handled by parent row
+            scrambleTrigger={scrambleTrigger}
+            frameSpeedMs={30}
+            durationFrames={15}
+          />
+        </div>
+        <div className="font-mono text-[9px] sm:text-[10px] text-text-dim flex items-center justify-end gap-1.5">
+          <span className="bg-panel px-1 py-0.2 border border-line/80 text-text-dim">
+            {windowTag}
+          </span>
+          {isSurge ? (
+            <span className="text-alert font-bold">▲ SURGE</span>
+          ) : (
+            <span className="text-signal-green">NORMAL</span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -184,7 +317,6 @@ export const HeroScrollFlight: React.FC = () => {
             { fare: number; isSurge: boolean; window: string }
           > = {};
           res.surges.forEach((s) => {
-            // Prioritize T+15 window, fallback if not set
             if (s.window === "T+15" || !map[s.route]) {
               map[s.route] = {
                 fare: s.current_avg > 0 ? s.current_avg : 0,
@@ -196,7 +328,7 @@ export const HeroScrollFlight: React.FC = () => {
           setSurgeData(map);
         }
       } catch {
-        // Silently use deterministic fallback values from seed repository
+        // Silently use deterministic fallback values
       }
     }
     loadFares();
@@ -228,7 +360,7 @@ export const HeroScrollFlight: React.FC = () => {
       ref={containerRef}
       className="relative w-full border border-line bg-panel p-4 md:p-5 rounded-sm"
     >
-      {/* Panel Header per DESIGN.md & site-wide labeling convention */}
+      {/* Panel Header */}
       <div className="flex items-center justify-between border-b border-line pb-3 mb-3 font-mono text-xs">
         <div className="flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
@@ -249,57 +381,16 @@ export const HeroScrollFlight: React.FC = () => {
           const isSurge = live ? live.isSurge : false;
           const windowTag = live ? live.window : corridor.window;
 
-          // Compute bounded aircraft position on arc [0.15, 0.85]
-          const tProgress = isReducedMotion
-            ? corridor.tOffset
-            : Math.min(
-                Math.max(corridor.tOffset + (scrollProgress - 0.5) * 0.28, 0.15),
-                0.85
-              );
-
           return (
-            <div
+            <RouteRow
               key={corridor.route}
-              className="grid grid-cols-12 gap-2 items-center py-2.5 px-3 border border-line/70 bg-bg-void/80 hover:border-accent-amber/40 hover:bg-line/20 transition-colors rounded-sm"
-            >
-              {/* Route Code & Traffic Frequency */}
-              <div className="col-span-4 sm:col-span-4 space-y-0.5">
-                <div className="font-mono font-bold text-xs sm:text-sm text-text-primary tracking-tight">
-                  {corridor.origin}{" "}
-                  <span className="text-accent-amber font-normal">→</span>{" "}
-                  {corridor.destination}
-                </div>
-                <div className="font-mono text-[9px] sm:text-[10px] text-text-dim tracking-wider">
-                  {corridor.flightsPerDay}
-                </div>
-              </div>
-
-              {/* Sparkline Thumbnail Arc */}
-              <div className="col-span-4 sm:col-span-4">
-                <SparklineArc
-                  origin={corridor.origin}
-                  destination={corridor.destination}
-                  tProgress={tProgress}
-                />
-              </div>
-
-              {/* Indicative Tariff & Window Status */}
-              <div className="col-span-4 sm:col-span-4 text-right space-y-0.5">
-                <div className="font-mono font-bold text-xs sm:text-sm text-accent-amber">
-                  ₹ {fare.toLocaleString()}
-                </div>
-                <div className="font-mono text-[9px] sm:text-[10px] text-text-dim flex items-center justify-end gap-1.5">
-                  <span className="bg-panel px-1 py-0.2 border border-line/80 text-text-dim">
-                    {windowTag}
-                  </span>
-                  {isSurge ? (
-                    <span className="text-alert font-bold">▲ SURGE</span>
-                  ) : (
-                    <span className="text-signal-green">NORMAL</span>
-                  )}
-                </div>
-              </div>
-            </div>
+              corridor={corridor}
+              fare={fare}
+              isSurge={isSurge}
+              windowTag={windowTag}
+              scrollProgress={scrollProgress}
+              isReducedMotion={isReducedMotion}
+            />
           );
         })}
       </div>

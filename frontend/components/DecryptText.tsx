@@ -11,6 +11,7 @@ interface DecryptTextProps {
   frameSpeedMs?: number;
   triggerOnHover?: boolean;
   as?: "h1" | "h2" | "h3" | "span" | "div";
+  scrambleTrigger?: number;
 }
 
 /**
@@ -34,6 +35,7 @@ export const DecryptText: React.FC<DecryptTextProps> = ({
   frameSpeedMs = 35,
   triggerOnHover = true,
   as: Component = "span",
+  scrambleTrigger = 0,
 }) => {
   /* Start with scrambled glyphs so the first frame is visibly scrambled */
   const scrambledInitial = text
@@ -108,6 +110,13 @@ export const DecryptText: React.FC<DecryptTextProps> = ({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* Allow parent to trigger scramble by incrementing a counter */
+  useEffect(() => {
+    if (scrambleTrigger && scrambleTrigger > 0 && !isScrambling) {
+      startScramble();
+    }
+  }, [scrambleTrigger, startScramble, isScrambling]);
 
   const handleMouseEnter = () => {
     if (triggerOnHover && !isScrambling) {
