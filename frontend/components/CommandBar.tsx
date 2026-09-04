@@ -54,7 +54,7 @@ export function CommandBar() {
           source: "dev-mock",
           window: "T+7",
           data: { current: 7800, baseline: 6070, pct_above: syntheticPct },
-          timestamp: new Date().toLocaleTimeString("en-GB"),
+          timestamp: new Date().toISOString(),
         });
         setResponse({
           msg: `[DEV] Fired synthetic surge_detected event for ${testRoute}`,

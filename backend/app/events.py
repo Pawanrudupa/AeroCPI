@@ -36,7 +36,7 @@ class PipelineEvent:
     source: str = ""
     window: str = ""
     data: Dict[str, Any] = field(default_factory=dict)
-    timestamp: str = field(default_factory=lambda: dt.datetime.now(dt.timezone.utc).strftime("%H:%M:%S"))
+    timestamp: str = field(default_factory=lambda: dt.datetime.now(dt.timezone.utc).isoformat())
 
     def to_sse(self) -> str:
         payload = asdict(self)

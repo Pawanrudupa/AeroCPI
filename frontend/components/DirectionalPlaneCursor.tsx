@@ -115,19 +115,16 @@ export const DirectionalPlaneCursor: React.FC<DirectionalPlaneCursorProps> = ({
     >
       {/* Airplane silhouette pointing upward (0°) — rotated by atan2 heading */}
       <svg
-        width="26"
-        height="26"
+        width="28"
+        height="28"
         viewBox="0 0 24 24"
-        fill="none"
+        fill="#C9A227"
+        stroke="#0A0A07"
+        strokeWidth="0.75"
         xmlns="http://www.w3.org/2000/svg"
         className="drop-shadow-[0_0_8px_rgba(201,162,39,0.7)]"
       >
-        <path
-          d="M12 2 L13.5 8 L20 10 L13.5 12 L13.5 19 L12 17 L10.5 19 L10.5 12 L4 10 L10.5 8 Z"
-          fill="#C9A227"
-          stroke="#0A0A07"
-          strokeWidth="0.75"
-        />
+        <path d="M12 2c-.55 0-1 .45-1 1v6.5L3.5 14c-.3.2-.5.5-.5.8v1.4c0 .4.4.7.8.6L11 15v4l-2.5 2c-.2.2-.3.4-.3.7v.5c0 .4.4.7.8.6l3-1 3 1c.4.1.8-.2.8-.6v-.5c0-.3-.1-.5-.3-.7L13 19v-4l7.2 1.8c.4.1.8-.2.8-.6v-1.4c0-.3-.2-.6-.5-.8L13 9.5V3c0-.55-.45-1-1-1z" />
       </svg>
     </div>
   );

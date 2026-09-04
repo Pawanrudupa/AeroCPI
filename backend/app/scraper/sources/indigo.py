@@ -57,7 +57,7 @@ class IndiGoScraper(BaseScraper):
             # Check for bot challenge / CAPTCHA per ARCHITECTURE.md Section 4.2
             if response.status_code in (403, 429) or self.detect_bot_protection(content):
                 logger.warning(f"[INDIGO] Rate limit or Bot challenge detected for {route}. Invoking resilient cached fallback.")
-                seeded_data = get_seeded_snapshot(route, window)
+                seeded_data = get_seeded_snapshot(route, window, source="indigo")
                 return ScrapeResult(
                     source=self.source_name,
                     route=route,
@@ -81,7 +81,7 @@ class IndiGoScraper(BaseScraper):
             # If still empty (e.g. site empty/changed completely), use last-known-good seeded data
             if not parsed_quotes:
                 logger.warning(f"[INDIGO] All extraction paths exhausted for {route}. Falling back to seeded baseline.")
-                seeded_data = get_seeded_snapshot(route, window)
+                seeded_data = get_seeded_snapshot(route, window, source="indigo")
                 return ScrapeResult(
                     source=self.source_name,
                     route=route,
@@ -107,7 +107,7 @@ class IndiGoScraper(BaseScraper):
         except Exception as exc:
             # Plausible error handling: network outage, DNS failure, connection timeout
             logger.error(f"[INDIGO] Scrape error for {route} ({window}): {exc}. Engaging seeded fallback.", exc_info=False)
-            seeded_data = get_seeded_snapshot(route, window)
+            seeded_data = get_seeded_snapshot(route, window, source="indigo")
             return ScrapeResult(
                 source=self.source_name,
                 route=route,

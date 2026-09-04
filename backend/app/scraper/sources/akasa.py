@@ -46,9 +46,9 @@ class AkasaScraper(BaseScraper):
             content = response.text
             if response.status_code in (403, 429) or self.detect_bot_protection(content):
                 logger.warning(f"[AKASA] Bot challenge / rate limit on {route}. Engaging seeded fallback.")
-                seeded_data = [f for f in get_seeded_snapshot(route, window) if f.get("carrier") == "Akasa Air"]
+                seeded_data = [f for f in get_seeded_snapshot(route, window, source="akasa") if f.get("carrier") == "Akasa Air"]
                 if not seeded_data:
-                    seeded_data = get_seeded_snapshot(route, window)
+                    seeded_data = get_seeded_snapshot(route, window, source="akasa")
                 return ScrapeResult(
                     source=self.source_name,
                     route=route,
@@ -63,7 +63,7 @@ class AkasaScraper(BaseScraper):
             # Extract via primary or fallback
             parsed_quotes = extract_with_llm_fallback(content, route, window, departure_date)
             if not parsed_quotes:
-                seeded_data = get_seeded_snapshot(route, window)
+                seeded_data = get_seeded_snapshot(route, window, source="akasa")
                 return ScrapeResult(
                     source=self.source_name,
                     route=route,
@@ -88,7 +88,7 @@ class AkasaScraper(BaseScraper):
 
         except Exception as exc:
             logger.error(f"[AKASA] Fetch failed for {route}: {exc}. Using seeded snapshot.", exc_info=False)
-            seeded_data = get_seeded_snapshot(route, window)
+            seeded_data = get_seeded_snapshot(route, window, source="akasa")
             return ScrapeResult(
                 source=self.source_name,
                 route=route,

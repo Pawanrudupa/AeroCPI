@@ -259,12 +259,25 @@ export default function RouteDetailPage() {
                       tickFormatter={(val: string) => val.slice(5)}
                     />
                     <YAxis
+                      yAxisId="left"
                       stroke="#8A8672"
                       fontSize={11}
                       fontFamily="JetBrains Mono"
                       tickLine={false}
                       axisLine={false}
                       tickFormatter={(v: number) => `₹${v}`}
+                      domain={['auto', 'auto']}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      stroke="#8A8672"
+                      fontSize={11}
+                      fontFamily="JetBrains Mono"
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v: number) => v.toFixed(0)}
+                      domain={['auto', 'auto']}
                     />
                     <Tooltip
                       contentStyle={{
@@ -275,28 +288,32 @@ export default function RouteDetailPage() {
                         fontSize: "12px",
                       }}
                       formatter={(value: number, name: string) => [
-                        name === "avg_fare"
+                        name === "avg_total_fare"
                           ? `₹${value.toLocaleString()}`
                           : value.toFixed(2),
-                        name === "avg_fare"
+                        name === "avg_total_fare"
                           ? "Avg Fare"
                           : "Index Value",
                       ]}
                     />
                     <Line
+                      yAxisId="left"
                       type="monotone"
-                      dataKey="avg_fare"
+                      dataKey="avg_total_fare"
                       stroke="#C9A227"
                       strokeWidth={2}
                       dot={{ fill: "#C9A227", r: 3 }}
+                      name="avg_total_fare"
                     />
                     <Line
+                      yAxisId="right"
                       type="monotone"
                       dataKey="index_value"
                       stroke="#7FB86B"
                       strokeWidth={2}
                       strokeDasharray="4 4"
                       dot={{ fill: "#7FB86B", r: 3 }}
+                      name="index_value"
                     />
                   </LineChart>
                 </ResponsiveContainer>

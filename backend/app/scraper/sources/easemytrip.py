@@ -46,7 +46,7 @@ class EaseMyTripScraper(BaseScraper):
             content = response.text
             if response.status_code in (403, 429) or self.detect_bot_protection(content):
                 logger.warning(f"[EASEMYTRIP] Bot protection or rate limit on {route}. Engaging seeded fallback.")
-                seeded_data = get_seeded_snapshot(route, window)
+                seeded_data = get_seeded_snapshot(route, window, source="easemytrip")
                 return ScrapeResult(
                     source=self.source_name,
                     route=route,
@@ -61,7 +61,7 @@ class EaseMyTripScraper(BaseScraper):
             # Heuristic / fallback extraction
             parsed_quotes = extract_with_llm_fallback(content, route, window, departure_date)
             if not parsed_quotes:
-                seeded_data = get_seeded_snapshot(route, window)
+                seeded_data = get_seeded_snapshot(route, window, source="easemytrip")
                 return ScrapeResult(
                     source=self.source_name,
                     route=route,
@@ -86,7 +86,7 @@ class EaseMyTripScraper(BaseScraper):
 
         except Exception as exc:
             logger.error(f"[EASEMYTRIP] Error fetching {route}: {exc}. Using seeded snapshot.", exc_info=False)
-            seeded_data = get_seeded_snapshot(route, window)
+            seeded_data = get_seeded_snapshot(route, window, source="easemytrip")
             return ScrapeResult(
                 source=self.source_name,
                 route=route,

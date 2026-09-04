@@ -183,7 +183,7 @@ export const PipelineLogConsole: React.FC = () => {
                   source: "dev-test",
                   window: "T+7",
                   data: { current: 7800, baseline: 6070, pct_above: "28.5" },
-                  timestamp: new Date().toLocaleTimeString("en-GB"),
+                  timestamp: new Date().toISOString(),
                 });
               }}
               className="px-2.5 py-1 bg-alert/10 border border-alert/40 text-alert hover:bg-alert hover:text-bg-void transition-colors font-bold text-[11px] flex items-center gap-1"
@@ -229,17 +229,31 @@ export const PipelineLogConsole: React.FC = () => {
               SYSTEM IDLE — AWAITING NEXT PIPELINE RUN
             </div>
           ) : (
-            pipelineEvents.map((event, idx) => (
-              <div
-                key={idx}
-                className={`py-0.5 ${EVENT_COLORS[event.event_type] || "text-text-dim"}`}
-              >
-                <span className="text-text-dim mr-2">
-                  [{event.timestamp}]
-                </span>
-                <span>{event.message}</span>
-              </div>
-            ))
+            pipelineEvents.map((event, idx) => {
+              let displayTime = event.timestamp;
+              try {
+                // If the timestamp is a valid ISO string, format it to local time.
+                // If it's the old "%H:%M:%S" legacy format, new Date() might return Invalid Date.
+                const d = new Date(event.timestamp);
+                if (!isNaN(d.getTime())) {
+                  displayTime = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+                }
+              } catch (e) {
+                // Keep original if parsing fails
+              }
+
+              return (
+                <div
+                  key={idx}
+                  className={`py-0.5 ${EVENT_COLORS[event.event_type] || "text-text-dim"}`}
+                >
+                  <span className="text-text-dim mr-2">
+                    [{displayTime}]
+                  </span>
+                  <span>{event.message}</span>
+                </div>
+              );
+            })
           )}
           <div ref={logEndRef} />
         </div>
