@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 from sqlmodel import Session, select
 from backend.app.models import FareQuote, IndexDaily, IndexRoute
+from backend.app.events import event_bus, PipelineEvent, EventType
 
 logger = logging.getLogger("aerocpi.index.geks")
 
@@ -243,6 +244,31 @@ def calculate_and_save_daily_indices(
                 has_seeded_data=bool(has_seeded)
             )
             session.add(new_r_idx)
+
+    # Emit index recomputed event
+    event_bus.publish(PipelineEvent(
+        event_type=EventType.INDEX_RECOMPUTED,
+        message=f"INDEX RECOMPUTED :: {len(saved_records)} DAILY POINTS",
+        data={"points": len(saved_records), "latest_value": saved_records[-1].index_value if saved_records else None}
+    ))
+
+    # Surge detection: check if any route's latest median exceeds its historical baseline by >= 20%
+    for r in route_medians.index.get_level_values("route").unique():
+        route_prices = route_medians[r].sort_index()
+        if len(route_prices) < 2:
+            continue
+        current_val = float(route_prices.iloc[-1])
+        baseline_vals = route_prices.iloc[:-1]
+        baseline_avg = float(baseline_vals.mean()) if len(baseline_vals) > 0 else current_val
+        if baseline_avg > 0:
+            pct_above = ((current_val - baseline_avg) / baseline_avg) * 100
+            if pct_above >= 20:
+                event_bus.publish(PipelineEvent(
+                    event_type=EventType.SURGE_DETECTED,
+                    message=f"\u25b2 SURGE :: {r} \u2014 {pct_above:.0f}% ABOVE BASELINE",
+                    route=r,
+                    data={"current": round(current_val, 2), "baseline": round(baseline_avg, 2), "pct_above": round(pct_above, 1)}
+                ))
 
     session.commit()
     return saved_records

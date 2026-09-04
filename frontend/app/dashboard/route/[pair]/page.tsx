@@ -14,6 +14,17 @@ import {
 } from "recharts";
 import { useAuth } from "@/lib/auth";
 import { api, type IndexRouteRecord, type FareQuoteRecord } from "@/lib/api";
+import { QuoteTable } from "@/components/QuoteTable";
+import { TrendIndicator } from "@/components/TrendIndicator";
+
+const DGCA_ROUTE_WEIGHTS: Record<string, number> = {
+  "DEL-BOM": 0.24,
+  "DEL-BLR": 0.20,
+  "BOM-BLR": 0.18,
+  "DEL-CCU": 0.15,
+  "BLR-HYD": 0.12,
+  "MAA-DEL": 0.11,
+};
 
 /**
  * /dashboard/route/[pair] — Per-route detail view.
@@ -67,41 +78,84 @@ export default function RouteDetailPage() {
     loadRouteData();
   }, [token, pair]);
 
-  /* Group fares by window for the breakdown table */
+  /* Group fares by window and source for comparison and component breakdown */
   const faresByWindow: Record<string, FareQuoteRecord[]> = {};
   routeFares.forEach((f) => {
     if (!faresByWindow[f.window]) faresByWindow[f.window] = [];
     faresByWindow[f.window].push(f);
   });
 
-  const avgByWindow = Object.entries(faresByWindow).map(([window, fares]) => {
-    const avg =
-      fares.reduce((sum, f) => sum + f.total_fare, 0) / fares.length;
+  const windowStats = Object.entries(faresByWindow).map(([window, fares]) => {
+    const avg = fares.reduce((sum, f) => sum + f.total_fare, 0) / fares.length;
     const liveCount = fares.filter((f) => f.source_type === "live").length;
     const seededCount = fares.filter((f) => f.source_type === "seeded").length;
-    return { window, avg: Math.round(avg), count: fares.length, liveCount, seededCount };
+    
+    // Source breakdown
+    const sourceMap: Record<string, { base: number, taxes: number, count: number, total: number }> = {};
+    fares.forEach(f => {
+      const src = f.source.toUpperCase();
+      if (!sourceMap[src]) sourceMap[src] = { base: 0, taxes: 0, count: 0, total: 0 };
+      sourceMap[src].base += (f.base_fare || 0);
+      sourceMap[src].taxes += ((f.taxes || 0) + (f.udf || 0) + (f.convenience_fee || 0));
+      sourceMap[src].total += f.total_fare;
+      sourceMap[src].count += 1;
+    });
+    
+    const sourceAverages = Object.entries(sourceMap).map(([src, data]) => ({
+      source: src,
+      avgBase: data.count ? data.base / data.count : 0,
+      avgTaxes: data.count ? data.taxes / data.count : 0,
+      avgTotal: data.count ? data.total / data.count : 0,
+    }));
+    
+    const minSourceTotal = Math.min(...sourceAverages.map(s => s.avgTotal).filter(v => v > 0));
+
+    return { 
+      window, 
+      avg: Math.round(avg), 
+      count: fares.length, 
+      liveCount, 
+      seededCount,
+      sources: sourceAverages,
+      minSourceTotal
+    };
   });
 
   return (
     <div className="space-y-8">
       {/* Breadcrumb + Route Header */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2 font-mono text-xs text-text-dim">
-          <Link
-            href="/dashboard"
-            className="hover:text-accent-amber transition-colors"
-          >
-            DASHBOARD
-          </Link>
-          <span>/</span>
-          <span className="text-text-primary">ROUTE</span>
-          <span>/</span>
-          <span className="text-accent-amber font-bold">{pair}</span>
-        </div>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 font-mono text-xs text-text-dim">
+              <Link
+                href="/dashboard"
+                className="hover:text-accent-amber transition-colors"
+              >
+                DASHBOARD
+              </Link>
+              <span>/</span>
+              <span className="text-text-primary">ROUTE</span>
+              <span>/</span>
+              <span className="text-accent-amber font-bold">{pair}</span>
+            </div>
 
-        <h1 className="text-xl md:text-2xl font-bold font-mono text-text-primary">
-          [ SECTOR ANALYSIS :: {pair} ]
-        </h1>
+            <div className="flex items-center gap-4">
+              <h1 className="text-xl md:text-2xl font-bold font-mono text-text-primary">
+                [ SECTOR ANALYSIS :: {pair} ]
+              </h1>
+              {DGCA_ROUTE_WEIGHTS[pair] && (
+                <span className="font-mono text-xs px-2 py-1 bg-white/5 border border-line text-text-dim rounded-sm">
+                  DGCA WEIGHT: {(DGCA_ROUTE_WEIGHTS[pair] * 100).toFixed(0)}%
+                </span>
+              )}
+            </div>
+          </div>
+          
+          {routeFares.length > 0 && (
+            <TrendIndicator fares={routeFares} />
+          )}
+        </div>
       </div>
 
       {isLoading ? (
@@ -116,34 +170,61 @@ export default function RouteDetailPage() {
         </div>
       ) : (
         <>
-          {/* Window Breakdown Summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {avgByWindow.map((w) => (
-              <div
-                key={w.window}
-                className="border border-line bg-panel p-5 font-mono"
-              >
-                <span className="text-[10px] text-text-dim block">
-                  {w.window} WINDOW
-                </span>
-                <span className="text-xl font-bold text-accent-amber">
-                  ₹{w.avg.toLocaleString()}
-                </span>
-                <div className="mt-1 flex items-center gap-2 text-[10px]">
-                  <span className="text-signal-green">
-                    {w.liveCount} LIVE
-                  </span>
-                  {w.seededCount > 0 && (
-                    <span className="text-accent-amber">
-                      {w.seededCount} SEEDED
-                    </span>
-                  )}
-                  <span className="text-text-dim">
-                    ({w.count} TOTAL)
-                  </span>
+          {/* Window Breakdown & Source Comparison */}
+          <div className="space-y-4">
+            <div className="border-b border-line pb-2">
+              <span className="font-mono text-xs text-accent-amber block">
+                [ SOURCE COMPARISON & FARE COMPONENTS ]
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {windowStats.map((w) => (
+                <div
+                  key={w.window}
+                  className="border border-line bg-panel p-5 font-mono flex flex-col h-full"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <span className="text-[10px] text-text-dim block">
+                        {w.window} WINDOW AVERAGE
+                      </span>
+                      <span className="text-xl font-bold text-accent-amber">
+                        ₹{w.avg.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="text-right flex flex-col items-end gap-1 text-[10px]">
+                      <span className="text-text-dim">
+                        {w.count} CAPTURES
+                      </span>
+                      {w.liveCount > 0 && <span className="text-signal-green px-1.5 py-0.5 bg-signal-green/10 border border-signal-green/20">{w.liveCount} LIVE</span>}
+                      {w.seededCount > 0 && <span className="text-accent-amber px-1.5 py-0.5 bg-accent-amber/10 border border-accent-amber/20">{w.seededCount} SEEDED</span>}
+                    </div>
+                  </div>
+
+                  <div className="mt-auto space-y-2">
+                    <div className="text-[10px] text-text-dim border-b border-line/40 pb-1 mb-2">
+                      SOURCE BREAKDOWN
+                    </div>
+                    {w.sources.map((src) => {
+                      const isCheapest = src.avgTotal > 0 && src.avgTotal === w.minSourceTotal;
+                      return (
+                        <div key={src.source} className={`p-2 rounded-sm text-xs ${isCheapest ? "bg-signal-green/10 border border-signal-green/30" : "bg-bg-void border border-line/40"}`}>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className={isCheapest ? "text-signal-green font-bold" : "text-text-primary font-bold"}>{src.source}</span>
+                            <span className={isCheapest ? "text-signal-green font-bold" : "text-text-primary"}>₹{Math.round(src.avgTotal).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px] text-text-dim">
+                            <span>Base: ₹{Math.round(src.avgBase).toLocaleString()}</span>
+                            <span>Taxes/Fees: ₹{Math.round(src.avgTaxes).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           {/* Route Index Chart */}
@@ -225,86 +306,7 @@ export default function RouteDetailPage() {
 
           {/* Full Fare Table for this Route */}
           {routeFares.length > 0 && (
-            <div className="bg-panel border border-line p-5 rounded-sm">
-              <div className="border-b border-line pb-3 mb-4">
-                <span className="font-mono text-xs text-accent-amber block">
-                  [ TELEMETRY :: {pair} FARE LOG ]
-                </span>
-                <h2 className="text-base font-semibold text-text-primary">
-                  All Captured Quotes — {routeFares.length} Records
-                </h2>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full font-mono text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-line text-text-dim text-left">
-                      <th className="py-2 px-3">ORIGIN</th>
-                      <th className="py-2 px-3">CARRIER</th>
-                      <th className="py-2 px-3">FLIGHT</th>
-                      <th className="py-2 px-3">WINDOW</th>
-                      <th className="py-2 px-3 text-right">BASE</th>
-                      <th className="py-2 px-3 text-right">TAXES</th>
-                      <th className="py-2 px-3 text-right">TOTAL</th>
-                      <th className="py-2 px-3">SOURCE</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {routeFares.slice(0, 30).map((q) => {
-                      const isLive = q.source_type === "live";
-                      const taxes =
-                        (q.taxes || 0) + (q.udf || 0) + (q.convenience_fee || 0);
-                      return (
-                        <tr
-                          key={q.id}
-                          className="border-b border-line/40 hover:bg-white/[0.02]"
-                        >
-                          <td className="py-2 px-3">
-                            {isLive ? (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold bg-signal-green/10 text-signal-green border border-signal-green/30">
-                                <span className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
-                                LIVE
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold bg-accent-amber/10 text-accent-amber border border-accent-amber/30">
-                                SEEDED
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-2 px-3 text-text-primary">
-                            {q.carrier}
-                          </td>
-                          <td className="py-2 px-3 text-text-dim">
-                            {q.flight_number}
-                          </td>
-                          <td className="py-2 px-3 text-accent-amber font-semibold">
-                            {q.window}
-                          </td>
-                          <td className="py-2 px-3 text-right text-text-dim">
-                            {q.base_fare ? `₹${q.base_fare.toLocaleString()}` : "—"}
-                          </td>
-                          <td className="py-2 px-3 text-right text-text-dim">
-                            {taxes > 0 ? `₹${taxes.toLocaleString()}` : "—"}
-                          </td>
-                          <td className="py-2 px-3 text-right font-bold text-text-primary">
-                            ₹{q.total_fare.toLocaleString()}
-                          </td>
-                          <td className="py-2 px-3 text-text-dim uppercase text-[10px]">
-                            {q.source}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {routeFares.length > 30 && (
-                <div className="mt-3 pt-3 border-t border-line text-[11px] font-mono text-text-dim">
-                  SHOWING 30 OF {routeFares.length} — FULL DATASET AVAILABLE VIA API
-                </div>
-              )}
-            </div>
+            <QuoteTable quotes={routeFares} />
           )}
         </>
       )}

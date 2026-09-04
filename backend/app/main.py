@@ -7,12 +7,16 @@ Implements:
 """
 import os
 import datetime as dt
+import threading
+import asyncio
+import statistics
 from contextlib import asynccontextmanager
 from typing import List, Optional, Dict, Any
 
 from fastapi import FastAPI, Depends, HTTPException, status, Query, Path
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from starlette.responses import StreamingResponse
 from sqlmodel import Session, select
 from pydantic import BaseModel
 
@@ -24,6 +28,7 @@ from backend.app.dgca.ingestion import ingest_dgca_csv
 from backend.app.dgca.backtest import compute_backtest_metrics
 from backend.app.scraper.basket_runner import run_full_basket_pipeline
 from backend.app.index.geks import calculate_and_save_daily_indices
+from backend.app.events import event_bus, PipelineEvent, EventType
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
@@ -292,3 +297,119 @@ def trigger_pipeline_sync(
         "scrapes_executed": len(scrape_results),
         "index_points_computed": len(index_records)
     }
+
+
+@app.get("/events/pipeline", tags=["Pipeline Operations"])
+async def pipeline_events(
+    token: str = Query(..., description="JWT token for SSE auth")
+):
+    """SSE endpoint streaming pipeline events. Uses query param auth since EventSource doesn't support headers."""
+    payload = decode_access_token(token)
+    if not payload or "sub" not in payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    async def event_generator():
+        queue = event_bus.subscribe()
+        try:
+            initial = PipelineEvent(
+                event_type=EventType.CONNECTED,
+                message="CONNECTED TO EVENT STREAM" if not event_bus.is_running else "PIPELINE IN PROGRESS",
+                data={"pipeline_running": event_bus.is_running}
+            )
+            yield initial.to_sse()
+
+            while True:
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    yield event.to_sse()
+                except asyncio.TimeoutError:
+                    yield ": heartbeat\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            event_bus.unsubscribe(queue)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
+    )
+
+
+@app.post("/pipeline/trigger-sync-sse", tags=["Pipeline Operations"])
+def trigger_sync_sse(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Trigger pipeline in background thread, emitting events via SSE bus."""
+    if event_bus.is_running:
+        raise HTTPException(status_code=409, detail="Pipeline already running")
+
+    def run_pipeline():
+        event_bus.set_running(True)
+        event_bus.publish(PipelineEvent(
+            event_type=EventType.PIPELINE_START,
+            message="PIPELINE EXECUTION STARTED"
+        ))
+        try:
+            with Session(engine) as bg_session:
+                run_full_basket_pipeline(bg_session, limit_sources=True)
+                calculate_and_save_daily_indices(bg_session)
+            event_bus.publish(PipelineEvent(
+                event_type=EventType.PIPELINE_END,
+                message="PIPELINE EXECUTION COMPLETE"
+            ))
+        except Exception as e:
+            event_bus.publish(PipelineEvent(
+                event_type=EventType.SCRAPE_ERROR,
+                message=f"PIPELINE FAILED :: {str(e)}"
+            ))
+        finally:
+            event_bus.set_running(False)
+
+    thread = threading.Thread(target=run_pipeline, daemon=True)
+    thread.start()
+    return {"status": "started", "message": "Pipeline execution started in background"}
+
+
+@app.get("/pipeline/surge-status", tags=["Pipeline Operations"])
+def get_surge_status(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Returns current surge state for all route x window combinations."""
+    routes = ["DEL-BOM", "DEL-BLR", "BOM-BLR", "DEL-CCU", "BLR-HYD", "MAA-DEL"]
+    windows = ["T+7", "T+15", "T+30"]
+    results = []
+
+    for route in routes:
+        for window in windows:
+            fares = session.exec(
+                select(FareQuote)
+                .where(FareQuote.route == route, FareQuote.window == window)
+                .order_by(FareQuote.scraped_at.desc())
+            ).all()
+
+            if len(fares) < 2:
+                results.append({"route": route, "window": window, "is_surge": False, "current_avg": 0, "baseline_avg": 0, "pct_above": 0})
+                continue
+
+            latest_fares = [f.total_fare for f in fares[:5]]
+            baseline_fares = [f.total_fare for f in fares[5:]]
+
+            current_avg = statistics.mean(latest_fares) if latest_fares else 0
+            baseline_avg = statistics.mean(baseline_fares) if baseline_fares else current_avg
+
+            pct_above = ((current_avg - baseline_avg) / baseline_avg * 100) if baseline_avg > 0 else 0
+            is_surge = pct_above >= 20
+
+            results.append({
+                "route": route,
+                "window": window,
+                "is_surge": is_surge,
+                "current_avg": round(current_avg, 2),
+                "baseline_avg": round(baseline_avg, 2),
+                "pct_above": round(pct_above, 1)
+            })
+
+    return {"surges": results}

@@ -8,6 +8,7 @@ Implements:
 import logging
 import datetime as dt
 from typing import List, Optional
+from backend.app.events import event_bus, PipelineEvent, EventType
 from sqlmodel import Session
 from backend.app.models import RawSnapshot, FareQuote
 from backend.app.etl.storage import save_raw_snapshot
@@ -34,6 +35,7 @@ def run_pipeline_for_route(
     """
     route = f"{origin}-{destination}".upper()
     scraper = scraper or IndiGoScraper()
+    source_name = scraper.source_name
     
     # Calculate departure date based on window
     days_map = {"T+7": 7, "T+15": 15, "T+30": 30}
@@ -41,9 +43,21 @@ def run_pipeline_for_route(
     departure_date = dt.date.today() + dt.timedelta(days=advance_days)
     
     logger.info(f"Executing pipeline: [{scraper.source_name.upper()}] {route} ({window}) for dep_date={departure_date}")
+    
+    event_bus.publish(PipelineEvent(event_type=EventType.SCRAPE_START, message=f"SCRAPING {route} :: {source_name}...", route=route, source=source_name, window=window))
 
-    # 1. Scrape raw
-    scrape_res: ScrapeResult = scraper.fetch_quotes(origin, destination, departure_date, window)
+    try:
+        # 1. Scrape raw
+        scrape_res: ScrapeResult = scraper.fetch_quotes(origin, destination, departure_date, window)
+        
+        if scrape_res.status == "success":
+            event_bus.publish(PipelineEvent(event_type=EventType.SCRAPE_OK, message=f"OK CAPTURED {len(scrape_res.parsed_quotes)} QUOTES :: {route} {window}", route=route, source=source_name, window=window, data={"flight_count": len(scrape_res.parsed_quotes)}))
+        else:
+            event_bus.publish(PipelineEvent(event_type=EventType.SCRAPE_WARN, message=f"WARN {scrape_res.status.upper()} :: LLM FALLBACK TRIGGERED", route=route, source=source_name, window=window))
+            
+    except Exception as e:
+        event_bus.publish(PipelineEvent(event_type=EventType.SCRAPE_ERROR, message=f"ERROR :: {route} {source_name} — {str(e)}", route=route, source=source_name, window=window))
+        raise e
 
     # 2. Save immutable raw snapshot
     snapshot: RawSnapshot = save_raw_snapshot(

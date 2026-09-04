@@ -134,4 +134,20 @@ export const api = {
       token,
       { method: "POST" },
     ),
+
+  triggerSyncSSE: (token: string) =>
+    apiFetch<{ status: string; message: string }>(
+      "/pipeline/trigger-sync-sse",
+      token,
+      { method: "POST" },
+    ),
+
+  surgeStatus: (token: string) =>
+    apiFetch<{ surges: Array<{ route: string; window: string; is_surge: boolean; current_avg: number; baseline_avg: number; pct_above: number }> }>(
+      "/pipeline/surge-status",
+      token,
+    ),
 };
+
+export const getSSEUrl = (token: string) =>
+  `${API_BASE}/events/pipeline?token=${encodeURIComponent(token)}`;

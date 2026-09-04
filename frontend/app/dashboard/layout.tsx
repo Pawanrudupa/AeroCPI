@@ -5,6 +5,9 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { API_BASE } from "@/lib/api";
+import { DashboardProvider } from "@/lib/dashboard-context";
+import { CommandBar } from "@/components/CommandBar";
+import { SurgeToast } from "@/components/SurgeToast";
 
 /**
  * Dashboard layout — wraps all /dashboard/* routes.
@@ -57,88 +60,96 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-bg-void text-text-primary">
-      {/* ============================================================ */}
-      {/*  DASHBOARD NAV BAR                                            */}
-      {/* ============================================================ */}
-      <header className="border-b border-line bg-panel/80 backdrop-blur-md sticky top-0 z-40 px-4 md:px-8 py-2.5">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
-          {/* Left: System identifier + status */}
-          <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              className="text-accent-amber font-bold tracking-wider hover:underline"
-            >
-              [ AeroCPI TERMINAL ]
-            </Link>
+    <DashboardProvider>
+      <div className="min-h-screen bg-bg-void text-text-primary">
+        {/* ============================================================ */}
+        {/*  DASHBOARD NAV BAR                                            */}
+        {/* ============================================================ */}
+        <header className="border-b border-line bg-panel/80 backdrop-blur-md sticky top-0 z-40 px-4 md:px-8 py-2.5">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+            {/* Left: System identifier + status */}
+            <div className="flex items-center gap-3">
+              <Link
+                href="/dashboard"
+                className="text-accent-amber font-bold tracking-wider hover:underline"
+              >
+                [ AeroCPI TERMINAL ]
+              </Link>
 
-            <span className="hidden sm:inline text-text-dim">|</span>
+              <span className="hidden sm:inline text-text-dim">|</span>
 
-            <span
-              className={`hidden sm:inline flex items-center gap-1.5 ${
-                apiStatus === "connected"
-                  ? "text-signal-green"
-                  : apiStatus === "offline"
-                    ? "text-alert"
-                    : "text-text-dim"
-              }`}
-            >
               <span
-                className={`w-1.5 h-1.5 rounded-full ${
+                className={`hidden sm:inline flex items-center gap-1.5 ${
                   apiStatus === "connected"
-                    ? "bg-signal-green animate-pulse"
+                    ? "text-signal-green"
                     : apiStatus === "offline"
-                      ? "bg-alert"
-                      : "bg-text-dim animate-pulse"
+                      ? "text-alert"
+                      : "text-text-dim"
                 }`}
-              />
-              {apiStatus === "connected"
-                ? "API CONNECTED"
-                : apiStatus === "offline"
-                  ? "API OFFLINE"
-                  : "CHECKING..."}
-            </span>
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    apiStatus === "connected"
+                      ? "bg-signal-green animate-pulse"
+                      : apiStatus === "offline"
+                        ? "bg-alert"
+                        : "bg-text-dim animate-pulse"
+                  }`}
+                />
+                {apiStatus === "connected"
+                  ? "API CONNECTED"
+                  : apiStatus === "offline"
+                    ? "API OFFLINE"
+                    : "CHECKING..."}
+              </span>
 
-            <span className="hidden md:inline text-text-dim">|</span>
-            <span className="hidden md:inline text-text-dim">
-              BASKET: 6 SECTORS × 3 WINDOWS
-            </span>
+              <span className="hidden md:inline text-text-dim">|</span>
+              <span className="hidden md:inline text-text-dim">
+                BASKET: 6 SECTORS × 3 WINDOWS
+              </span>
+            </div>
+
+            {/* Right: Navigation + user + logout */}
+            <div className="flex items-center gap-3 text-[11px]">
+              {/* Nav links */}
+              <Link
+                href="/dashboard"
+                className={`px-2 py-1 transition-colors ${
+                  pathname === "/dashboard"
+                    ? "text-accent-amber border-b border-accent-amber"
+                    : "text-text-dim hover:text-text-primary"
+                }`}
+              >
+                INDEX
+              </Link>
+
+              {/* User info */}
+              <span className="text-text-dim hidden sm:inline">
+                {userEmail}
+                {role && (
+                  <span className="ml-1 text-signal-green">
+                    [{role.toUpperCase()}]
+                  </span>
+                )}
+              </span>
+
+              {/* Logout */}
+              <button
+                onClick={logout}
+                className="px-2 py-1 text-alert hover:text-text-primary hover:bg-alert/10 transition-colors border border-transparent hover:border-alert/30"
+              >
+                [ LOGOUT ]
+              </button>
+            </div>
           </div>
+        </header>
 
-          {/* Right: Navigation + user + logout */}
-          <div className="flex items-center gap-3 text-[11px]">
-            {/* Nav links */}
-            <Link
-              href="/dashboard"
-              className={`px-2 py-1 transition-colors ${
-                pathname === "/dashboard"
-                  ? "text-accent-amber border-b border-accent-amber"
-                  : "text-text-dim hover:text-text-primary"
-              }`}
-            >
-              INDEX
-            </Link>
-
-            {/* User info */}
-            <span className="text-text-dim hidden sm:inline">
-              {userEmail}
-              {role && (
-                <span className="ml-1 text-signal-green">
-                  [{role.toUpperCase()}]
-                </span>
-              )}
-            </span>
-
-            {/* Logout */}
-            <button
-              onClick={logout}
-              className="px-2 py-1 text-alert hover:text-text-primary hover:bg-alert/10 transition-colors border border-transparent hover:border-alert/30"
-            >
-              [ LOGOUT ]
-            </button>
+        {/* NEW: Command Bar between nav and content */}
+        <div className="border-b border-line bg-bg-void">
+          <div className="max-w-7xl mx-auto px-4 md:px-8">
+            <CommandBar />
           </div>
         </div>
-      </header>
 
       {/* ============================================================ */}
       {/*  PAGE CONTENT                                                 */}
@@ -164,6 +175,10 @@ export default function DashboardLayout({
           </div>
         </div>
       </footer>
+
+      {/* NEW: Surge Toast overlay */}
+      <SurgeToast />
     </div>
+    </DashboardProvider>
   );
 }

@@ -10,6 +10,7 @@ from typing import Optional, List, Dict, Any
 import numpy as np
 import pandas as pd
 from backend.app.models import FareQuote
+from backend.app.events import event_bus, PipelineEvent, EventType
 
 
 # Domestic Indian Airfare sanity boundaries (economy)
@@ -109,6 +110,7 @@ def clean_and_normalize_quotes(
 
     # Step 2: Deduplication by (route, carrier, flight_number, departure_date, window)
     df = pd.DataFrame(valid_candidates)
+    initial_df_len = len(df)
     
     # Sort by total_fare ascending so deduplication keeps the best available quote for same flight
     df = df.sort_values(by="total_fare", ascending=True)
@@ -120,11 +122,14 @@ def clean_and_normalize_quotes(
         dedup_cols = ["route", "carrier", "departure_time", "departure_date", "window"]
         
     df = df.drop_duplicates(subset=dedup_cols, keep="first")
+    dupes_removed = initial_df_len - len(df)
 
     # Step 3: Outlier rejection using IQR filter
+    len_before_outliers = len(df)
     fares_list = df["total_fare"].tolist()
     lower_bound, upper_bound = filter_iqr_outliers(fares_list)
     df = df[(df["total_fare"] >= lower_bound) & (df["total_fare"] <= upper_bound)]
+    outliers_removed = len_before_outliers - len(df)
 
     # Step 4: Convert clean rows to FareQuote model instances
     cleaned_quotes: List[FareQuote] = []
@@ -149,5 +154,14 @@ def clean_and_normalize_quotes(
             raw_snapshot_id=row["raw_snapshot_id"]
         )
         cleaned_quotes.append(quote)
+
+    initial_count = len(raw_quotes)
+    event_bus.publish(PipelineEvent(
+        event_type=EventType.CLEAN_STEP,
+        message=f"CLEAN {route} {window} :: {len(cleaned_quotes)} QUOTES RETAINED (from {initial_count}, {outliers_removed} OUTLIERS, {dupes_removed} DUPES)",
+        route=route,
+        window=window,
+        data={"initial": initial_count, "retained": len(cleaned_quotes), "outliers_removed": outliers_removed, "dupes_removed": dupes_removed}
+    ))
 
     return cleaned_quotes

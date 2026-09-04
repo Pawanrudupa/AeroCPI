@@ -7,6 +7,7 @@ import { LiveTrendChart } from "@/components/LiveTrendChart";
 import { HeatmapMatrix } from "@/components/HeatmapMatrix";
 import { ElasticityCurve } from "@/components/ElasticityCurve";
 import { QuoteTable, type DisplayQuote } from "@/components/QuoteTable";
+import { PipelineLogConsole } from "@/components/PipelineLogConsole";
 
 /**
  * /dashboard — Main data application page.
@@ -23,7 +24,6 @@ export default function DashboardPage() {
   const { token } = useAuth();
 
   const [quotes, setQuotes] = useState<DisplayQuote[]>([]);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [indexSummary, setIndexSummary] = useState<{
     latest: number | null;
     change: string;
@@ -86,38 +86,6 @@ export default function DashboardPage() {
 
     loadData();
   }, [token]);
-
-  const handleTriggerSync = async () => {
-    if (!token) return;
-    const t = token;
-    setIsSyncing(true);
-    try {
-      await api.triggerSync(t);
-      /* Reload quotes after sync */
-      const faresRes = await api.rawFares(t, { limit: 100 });
-      setQuotes(
-        faresRes.quotes.map((q) => ({
-          id: q.id,
-          route: q.route,
-          carrier: q.carrier,
-          flight_number: q.flight_number,
-          window: q.window,
-          base_fare: q.base_fare,
-          taxes: q.taxes,
-          udf: q.udf,
-          convenience_fee: q.convenience_fee,
-          total_fare: q.total_fare,
-          source: q.source,
-          source_type: q.source_type,
-          scraped_at: q.scraped_at,
-        })),
-      );
-    } catch {
-      /* sync failed — leave existing data */
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   return (
     <div className="space-y-8">
@@ -185,11 +153,10 @@ export default function DashboardPage() {
       </div>
 
       {/* Row 3: Raw Quote Audit Log */}
-      <QuoteTable
-        quotes={quotes}
-        onTriggerSync={handleTriggerSync}
-        isSyncing={isSyncing}
-      />
+      <QuoteTable quotes={quotes} />
+
+      {/* Row 4: Live Pipeline Event Log */}
+      <PipelineLogConsole />
     </div>
   );
 }
