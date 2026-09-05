@@ -143,3 +143,16 @@ class DGCABenchmark(SQLModel, table=True):
     source_document: str = Field(nullable=False)  # e.g. 'DGCA Monthly Air Transport Report - Table 4.1'
     publication_date: str = Field(nullable=False)  # e.g. '2026-08-25'
     source_url: Optional[str] = None  # e.g. 'https://dgca.gov.in'
+
+
+class MospiBenchmark(SQLModel, table=True):
+    __tablename__ = 'mospi_monthly'
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    month: str = Field(index=True, nullable=False)
+    cpi_index: float = Field(nullable=False)
+    sector: str = Field(default='Combined', nullable=False)
+    benchmark_type: str = Field(default='OFFICIAL_GOVERNMENT')
+    source_document: str = Field(nullable=False)
+    publication_date: str = Field(nullable=False)
+    source_url: str = Field(nullable=False)

@@ -10,44 +10,40 @@ from typing import Dict, List, Any, Optional
 import numpy as np
 import pandas as pd
 from sqlmodel import Session, select
-from backend.app.models import IndexDaily, DGCABenchmark
+from backend.app.models import IndexDaily, MospiBenchmark
 
 logger = logging.getLogger("aerocpi.dgca.backtest")
 
 
 def compute_backtest_metrics(session: Session) -> Dict[str, Any]:
     """
-    Compare AeroCPI index against verified DGCA monthly benchmark data.
-    Computes Pearson r, tracking error, and comparative time-series for dashboard charting.
+    Compare AeroCPI headline aggregate index against official MoSPI Transport & Communication CPI.
+    Note: MoSPI benchmark is an all-India aggregate covering broad transport, not just airfare.
     """
     daily_records = session.exec(select(IndexDaily).order_by(IndexDaily.date)).all()
-    dgca_records = session.exec(select(DGCABenchmark).order_by(DGCABenchmark.month)).all()
+    mospi_records = session.exec(select(MospiBenchmark).where(MospiBenchmark.sector == "Combined").order_by(MospiBenchmark.month)).all()
 
-    if not dgca_records:
+    if not mospi_records:
         return {
-            "status": "no_dgca_data",
-            "message": "No verified DGCA benchmark data available. Ingest official DGCA reports to compute backtest.",
+            "status": "no_benchmark_data",
+            "message": "No verified MoSPI benchmark data available. Awaiting MoSPI CPI release overlap.",
             "series": [],
             "correlation": None,
             "tracking_error": None
         }
 
-    # Map DGCA data by month
-    dgca_by_month: Dict[str, float] = {}
-    dgca_provenance: Dict[str, Dict[str, Any]] = {}
-    for rec in dgca_records:
-        # Weighted average across routes for the month
+    # Map MoSPI data by month
+    mospi_by_month: Dict[str, float] = {}
+    mospi_provenance: Dict[str, Dict[str, Any]] = {}
+    for rec in mospi_records:
         month = rec.month
-        dgca_by_month.setdefault(month, []).append(rec.avg_fare * rec.passenger_share)
-        dgca_provenance[month] = {
+        mospi_by_month[month] = rec.cpi_index
+        mospi_provenance[month] = {
             "source_document": rec.source_document,
             "publication_date": rec.publication_date,
-            "source_url": rec.source_url
+            "source_url": rec.source_url,
+            "scope_limitation": "All-India aggregate Transport & Communication CPI (not airfare-only)"
         }
-
-    monthly_dgca_averages: Dict[str, float] = {}
-    for m, weighted_fares in dgca_by_month.items():
-        monthly_dgca_averages[m] = round(sum(weighted_fares), 2)
 
     # If daily records exist, aggregate by month
     aerocpi_monthly: Dict[str, float] = {}
@@ -60,46 +56,47 @@ def compute_backtest_metrics(session: Session) -> Dict[str, Any]:
     # Build comparative time series
     series = []
     aerocpi_vals = []
-    dgca_vals = []
+    mospi_vals = []
 
-    all_months = sorted(set(monthly_dgca_averages.keys()).union(aerocpi_monthly.keys()))
+    all_months = sorted(set(mospi_by_month.keys()).union(aerocpi_monthly.keys()))
     
-    # Normalize DGCA fares to base 100 for side-by-side index comparison
+    # Normalize MoSPI to our base period if needed, but since we just want tracking, we can compare directly 
+    # or normalize MoSPI to 100 on the first overlap month. Let's rebase MoSPI to 100 for visual comparison.
     base_month = all_months[0] if all_months else None
-    base_dgca_fare = monthly_dgca_averages.get(base_month, 1.0) if base_month else 1.0
+    base_mospi_idx = mospi_by_month.get(base_month, 100.0) if base_month else 100.0
 
     for m in all_months:
         aero_val = aerocpi_monthly.get(m)
-        raw_dgca_fare = monthly_dgca_averages.get(m)
-        norm_dgca_idx = round((raw_dgca_fare / base_dgca_fare) * 100.0, 2) if raw_dgca_fare and base_dgca_fare > 0 else None
+        raw_mospi_idx = mospi_by_month.get(m)
+        norm_mospi_idx = round((raw_mospi_idx / base_mospi_idx) * 100.0, 2) if raw_mospi_idx and base_mospi_idx > 0 else None
         
         divergence = None
-        if aero_val is not None and norm_dgca_idx is not None:
-            divergence = round(aero_val - norm_dgca_idx, 2)
+        if aero_val is not None and norm_mospi_idx is not None:
+            divergence = round(aero_val - norm_mospi_idx, 2)
             aerocpi_vals.append(aero_val)
-            dgca_vals.append(norm_dgca_idx)
+            mospi_vals.append(norm_mospi_idx)
 
         series.append({
             "month": m,
             "aerocpi_index": aero_val,
-            "dgca_index": norm_dgca_idx,
-            "dgca_raw_fare": raw_dgca_fare,
+            "mospi_index": norm_mospi_idx,
+            "mospi_raw_cpi": raw_mospi_idx,
             "divergence": divergence,
-            "provenance": dgca_provenance.get(m)
+            "provenance": mospi_provenance.get(m)
         })
 
     # Statistical metrics
     correlation = None
     tracking_error = None
-    if len(aerocpi_vals) >= 2 and len(dgca_vals) >= 2:
+    if len(aerocpi_vals) >= 2 and len(mospi_vals) >= 2:
         try:
             arr_aero = np.array(aerocpi_vals)
-            arr_dgca = np.array(dgca_vals)
-            r = np.corrcoef(arr_aero, arr_dgca)[0, 1]
+            arr_mospi = np.array(mospi_vals)
+            r = np.corrcoef(arr_aero, arr_mospi)[0, 1]
             correlation = round(float(r), 4) if not math.isnan(r) else None
             
             # Root Mean Square Tracking Error
-            rmse = np.sqrt(np.mean((arr_aero - arr_dgca) ** 2))
+            rmse = np.sqrt(np.mean((arr_aero - arr_mospi) ** 2))
             tracking_error = round(float(rmse), 2)
         except Exception as e:
             logger.error(f"Error computing correlation: {e}")
@@ -110,6 +107,7 @@ def compute_backtest_metrics(session: Session) -> Dict[str, Any]:
         "overlapping_points": len(aerocpi_vals),
         "correlation": correlation,
         "tracking_error": tracking_error,
-        "benchmark_type": "OFFICIAL_GOVERNMENT",
+        "benchmark_type": "OFFICIAL_GOVERNMENT_AGGREGATE",
+        "benchmark_source": "MoSPI Transport & Communication CPI (Base 2012=100)",
         "series": series
     }
