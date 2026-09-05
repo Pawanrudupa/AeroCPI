@@ -17,8 +17,8 @@ logger = logging.getLogger("aerocpi.dgca.backtest")
 
 def compute_backtest_metrics(session: Session) -> Dict[str, Any]:
     """
-    Compare AeroCPI headline aggregate index against official MoSPI Transport & Communication CPI.
-    Note: MoSPI benchmark is an all-India aggregate covering broad transport, not just airfare.
+    Compare AeroCPI headline aggregate index against official MoSPI Division 07.3 CPI.
+    Note: MoSPI benchmark is an all-India aggregate covering passenger transport services, not just airfare.
     """
     daily_records = session.exec(select(IndexDaily).order_by(IndexDaily.date)).all()
     mospi_records = session.exec(select(MospiBenchmark).where(MospiBenchmark.sector == "Combined").order_by(MospiBenchmark.month)).all()
@@ -42,7 +42,7 @@ def compute_backtest_metrics(session: Session) -> Dict[str, Any]:
             "source_document": rec.source_document,
             "publication_date": rec.publication_date,
             "source_url": rec.source_url,
-            "scope_limitation": "All-India aggregate Transport & Communication CPI (not airfare-only)"
+            "scope_limitation": "All-India aggregate CPI Div 07.3: Passenger transport services (not airfare-only)"
         }
 
     # If daily records exist, aggregate by month
@@ -108,6 +108,6 @@ def compute_backtest_metrics(session: Session) -> Dict[str, Any]:
         "correlation": correlation,
         "tracking_error": tracking_error,
         "benchmark_type": "OFFICIAL_GOVERNMENT_AGGREGATE",
-        "benchmark_source": "MoSPI Transport & Communication CPI (Base 2012=100)",
+        "benchmark_source": "MoSPI CPI Div 07.3 Passenger transport services (Base 2024=100)",
         "series": series
     }

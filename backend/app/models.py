@@ -146,6 +146,10 @@ class DGCABenchmark(SQLModel, table=True):
 
 
 class MospiBenchmark(SQLModel, table=True):
+    """
+    Official MoSPI Consumer Price Index - Division 07.3: Passenger transport services.
+    (All-India aggregate, Base 2024=100)
+    """
     __tablename__ = 'mospi_monthly'
 
     id: Optional[int] = Field(default=None, primary_key=True)
