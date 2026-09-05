@@ -65,15 +65,16 @@ def init_pdf_fonts():
     font_path_reg = None
     font_path_bold = None
 
-    if os.path.exists(dejavu_reg) and os.path.exists(dejavu_bold):
-        font_path_reg = dejavu_reg
-        font_path_bold = dejavu_bold
+    # Prioritize Windows native fonts for reliable Rupee glyph rendering
+    if os.path.exists("C:/Windows/Fonts/arial.ttf") and os.path.exists("C:/Windows/Fonts/arialbd.ttf"):
+        font_path_reg = "C:/Windows/Fonts/arial.ttf"
+        font_path_bold = "C:/Windows/Fonts/arialbd.ttf"
     elif os.path.exists("C:/Windows/Fonts/segoeui.ttf") and os.path.exists("C:/Windows/Fonts/segoeuib.ttf"):
         font_path_reg = "C:/Windows/Fonts/segoeui.ttf"
         font_path_bold = "C:/Windows/Fonts/segoeuib.ttf"
-    elif os.path.exists("C:/Windows/Fonts/arial.ttf") and os.path.exists("C:/Windows/Fonts/arialbd.ttf"):
-        font_path_reg = "C:/Windows/Fonts/arial.ttf"
-        font_path_bold = "C:/Windows/Fonts/arialbd.ttf"
+    elif os.path.exists(dejavu_reg) and os.path.exists(dejavu_bold):
+        font_path_reg = dejavu_reg
+        font_path_bold = dejavu_bold
 
     if font_path_reg and font_path_bold:
         pdfmetrics.registerFont(TTFont("AeroFont", font_path_reg))
