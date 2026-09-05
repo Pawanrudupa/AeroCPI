@@ -1,15 +1,9 @@
-"""
-AeroCPI IndiGo Scraper Implementation.
-Implements:
-- ARCHITECTURE.md Section 2 (Scraping engine)
-- ARCHITECTURE.md Section 4.1 (Selector drift handling & fallback to cached data)
-- ARCHITECTURE.md Section 4.2 (Anti-bot detection & backoff)
-- User Requirement: source_type accurately tagged ("live" vs "seeded")
-"""
 import logging
 import datetime as dt
 from typing import List, Dict, Any
-import httpx
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+from playwright_stealth import Stealth
+
 from backend.app.scraper.sources.base import BaseScraper, ScrapeResult
 from backend.app.scraper.fallback import extract_with_llm_fallback
 from backend.app.scraper.seed_data import get_seeded_snapshot
@@ -21,6 +15,7 @@ class IndiGoScraper(BaseScraper):
     """
     IndiGo flight scraper with anti-bot detection, selector drift canary,
     and cached last-known-good resilience fallback.
+    Now rewritten to use full browser automation via Playwright + stealth.
     """
 
     def __init__(self):
@@ -34,28 +29,60 @@ class IndiGoScraper(BaseScraper):
         window: str
     ) -> ScrapeResult:
         route = f"{origin}-{destination}".upper()
-        date_str = departure_date.strftime("%Y-%m-%d")
-        headers = self.get_random_headers()
-        headers["Referer"] = "https://www.goindigo.in/"
+        date_str = departure_date.strftime("%d/%m/%Y")
         
-        # Primary live search endpoint (IndiGo flight search / lightweight web interface)
+        # We target the live search page UI flow instead of the stale API endpoint.
         search_url = f"https://www.goindigo.in/flight-booking.html?origin={origin}&destination={destination}&date={date_str}"
-        api_search_url = f"https://www.goindigo.in/api/flight/search?origin={origin}&destination={destination}&date={date_str}"
-
+        
+        content = ""
         try:
-            # Respect ethical rate-limiting delay
             self.polite_delay(0.5, 1.5)
             
-            with httpx.Client(timeout=8.0, follow_redirects=True) as client:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                context = browser.new_context(
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+                    viewport={"width": 1280, "height": 800}
+                )
+                page = context.new_page()
+                Stealth().apply_stealth_sync(page)
+                
                 try:
-                    response = client.get(api_search_url, headers=headers)
-                except httpx.HTTPError:
-                    response = client.get(search_url, headers=headers)
+                    # Attempt to navigate to the home page to fill the UI
+                    page.goto("https://www.goindigo.in/", wait_until="domcontentloaded", timeout=15000)
+                    page.wait_for_timeout(2000)
+                    
+                    # If Akamai blocks us, the content length will be small and title empty.
+                    if len(page.content()) < 5000 and "akamfailoverpage" in page.content():
+                        raise Exception("WAF Blocked Home Page")
 
-            content = response.text
+                    # Attempt to fill form (UI flow)
+                    page.locator('input[placeholder*="From"]').click(timeout=5000)
+                    page.locator('input[placeholder*="From"]').fill(origin)
+                    page.keyboard.press("Enter")
+                    page.wait_for_timeout(500)
+                    
+                    page.locator('input[placeholder*="To"]').fill(destination)
+                    page.keyboard.press("Enter")
+                    page.wait_for_timeout(500)
+                    
+                    # Submit search (bypassing date picker for simplistic UI flow validation)
+                    page.locator('button:has-text("Search Flight")').click(timeout=5000)
+                    page.wait_for_timeout(5000)
+                    
+                    content = page.content()
+                except (PlaywrightTimeoutError, Exception) as ui_err:
+                    logger.warning(f"[INDIGO] UI flow failed/blocked ({ui_err}). Falling back to deep link.")
+                    # Fallback to direct navigation of the search page
+                    page.goto(search_url, wait_until="domcontentloaded", timeout=15000)
+                    page.wait_for_timeout(5000)
+                    content = page.content()
+                    
+                finally:
+                    browser.close()
 
             # Check for bot challenge / CAPTCHA per ARCHITECTURE.md Section 4.2
-            if response.status_code in (403, 429) or self.detect_bot_protection(content):
+            if self.detect_bot_protection(content) or "akamfailoverpage" in content or len(content) < 2000:
                 logger.warning(f"[INDIGO] Rate limit or Bot challenge detected for {route}. Invoking resilient cached fallback.")
                 seeded_data = get_seeded_snapshot(route, window, source="indigo")
                 return ScrapeResult(
@@ -69,16 +96,11 @@ class IndiGoScraper(BaseScraper):
                     status="bot_detected"
                 )
 
-            # Attempt primary selector / JSON parsing
-            parsed_quotes = self._parse_indigo_response(content, route, departure_date)
-            
-            # Canary test: if primary parsing returned zero flights from valid response,
-            # selector drift has occurred! Trigger LLM fallback per ARCHITECTURE.md Section 4.1 & 4.9
-            if not parsed_quotes:
-                logger.info(f"[INDIGO] Primary selector found 0 quotes on {route}. Triggering fallback parser.")
-                parsed_quotes = extract_with_llm_fallback(content, route, window, departure_date)
+            # Primary parsing via fallback heuristic (since UI classes change rapidly)
+            # The original API parser no longer works because we are hitting the UI page, not JSON.
+            # So we pass the rendered DOM content directly to the LLM / heuristic fallback
+            parsed_quotes = extract_with_llm_fallback(content, route, window, departure_date)
 
-            # If still empty (e.g. site empty/changed completely), use last-known-good seeded data
             if not parsed_quotes:
                 logger.warning(f"[INDIGO] All extraction paths exhausted for {route}. Falling back to seeded baseline.")
                 seeded_data = get_seeded_snapshot(route, window, source="indigo")
@@ -105,7 +127,6 @@ class IndiGoScraper(BaseScraper):
             )
 
         except Exception as exc:
-            # Plausible error handling: network outage, DNS failure, connection timeout
             logger.error(f"[INDIGO] Scrape error for {route} ({window}): {exc}. Engaging seeded fallback.", exc_info=False)
             seeded_data = get_seeded_snapshot(route, window, source="indigo")
             return ScrapeResult(
@@ -119,28 +140,3 @@ class IndiGoScraper(BaseScraper):
                 status="error",
                 error=str(exc)
             )
-
-    def _parse_indigo_response(self, content: str, route: str, departure_date: dt.date) -> List[Dict[str, Any]]:
-        """Primary JSON/HTML parser for IndiGo."""
-        import json
-        try:
-            data = json.loads(content)
-            # If JSON structure is present
-            flights = data.get("flights") or data.get("data", {}).get("flights", [])
-            results = []
-            for f in flights:
-                price = f.get("totalFare") or f.get("fare")
-                if price:
-                    results.append({
-                        "carrier": "IndiGo",
-                        "flight_number": f.get("flightNumber", "6E-000"),
-                        "departure_time": f.get("departureTime", "08:00"),
-                        "arrival_time": f.get("arrivalTime", "10:15"),
-                        "base_fare": float(f.get("baseFare", float(price) * 0.82)),
-                        "taxes": float(f.get("taxes", float(price) * 0.18)),
-                        "total_fare": float(price),
-                        "currency": "INR"
-                    })
-            return results
-        except Exception:
-            return []

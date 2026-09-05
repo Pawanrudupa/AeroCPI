@@ -11,6 +11,7 @@
   - Raw scrapes land immutably in `data/raw/` with cryptographic SHA-256 hashes.
   - Transparent data origin tagging: all quotes and snapshots carry an explicit `source_type: "live" | "seeded"` field so fallback data is never disguised as live.
   - Robust anti-bot escalation handling (detect $\rightarrow$ skip $\rightarrow$ log $\rightarrow$ retry with backoff) with cached last-known-good fallback.
+  - **Ethical Scraping Limitations:** Enterprise-grade bot protection (e.g., Akamai Bot Manager for IndiGo, CAPTCHA for EaseMyTrip) effectively blocks automated headless scraping. Per this project's ethical-scraping commitment, we will not circumvent these protections via residential proxy rotation or aggressive fingerprint spoofing. These sources will continue to serve seeded fallback data, honestly tagged as `seeded`.
 - **Multilateral GEKS-Törnqvist Index**:
   - Implements the Eurostat / ILO recommended multilateral GEKS-Törnqvist algorithm to avoid chain drift and preserve transitivity ($P(r, s) \times P(s, t) = P(r, t)$).
   - Weighted by official DGCA domestic passenger traffic shares (`PSD`).

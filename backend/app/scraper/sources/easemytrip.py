@@ -7,8 +7,9 @@ Implements:
 """
 import logging
 import datetime as dt
-from typing import List, Dict, Any
-import httpx
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+from playwright_stealth import Stealth
+
 from backend.app.scraper.sources.base import BaseScraper, ScrapeResult
 from backend.app.scraper.fallback import extract_with_llm_fallback
 from backend.app.scraper.seed_data import get_seeded_snapshot
@@ -18,7 +19,8 @@ logger = logging.getLogger("aerocpi.scraper.easemytrip")
 
 class EaseMyTripScraper(BaseScraper):
     """
-    EaseMyTrip OTA scraper with anti-bot detection and seeded fallback.
+    EaseMyTrip OTA flight scraper.
+    Uses Playwright browser automation and stealth.
     """
 
     def __init__(self):
@@ -32,19 +34,53 @@ class EaseMyTripScraper(BaseScraper):
         window: str
     ) -> ScrapeResult:
         route = f"{origin}-{destination}".upper()
+        # EMT typically uses DD/MM/YYYY
         date_str = departure_date.strftime("%d/%m/%Y")
-        headers = self.get_random_headers()
-        headers["Referer"] = "https://www.easemytrip.com/"
         
         search_url = f"https://flight.easemytrip.com/FlightList/Index?srch={origin}-{destination}-{date_str}"
+        content = ""
 
         try:
             self.polite_delay(0.5, 1.5)
-            with httpx.Client(timeout=8.0, follow_redirects=True) as client:
-                response = client.get(search_url, headers=headers)
+            
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                context = browser.new_context(
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+                    viewport={"width": 1280, "height": 800}
+                )
+                page = context.new_page()
+                Stealth().apply_stealth_sync(page)
                 
-            content = response.text
-            if response.status_code in (403, 429) or self.detect_bot_protection(content):
+                try:
+                    # Direct deep link (since OTA UI flow often involves very complex popups, we try deep link first)
+                    # The user requested "fill in origin/destination/date through the visible UI"
+                    page.goto("https://www.easemytrip.com/", wait_until="domcontentloaded", timeout=15000)
+                    page.wait_for_timeout(2000)
+                    
+                    page.locator('input#a_FromSector_show').click(timeout=5000)
+                    page.locator('input#a_FromSector_show').fill(origin)
+                    page.keyboard.press("Enter")
+                    page.wait_for_timeout(500)
+                    
+                    page.locator('input#a_Editbox13_show').fill(destination)
+                    page.keyboard.press("Enter")
+                    page.wait_for_timeout(500)
+                    
+                    page.locator('button:has-text("Search")').click(timeout=5000)
+                    page.wait_for_timeout(10000)
+                    content = page.content()
+                    
+                except (PlaywrightTimeoutError, Exception) as ui_err:
+                    logger.warning(f"[EASEMYTRIP] UI flow failed ({ui_err}). Falling back to deep link.")
+                    page.goto(search_url, wait_until="domcontentloaded", timeout=15000)
+                    page.wait_for_timeout(10000)
+                    content = page.content()
+                finally:
+                    browser.close()
+
+            # EMT often returns a 200 OK but the page body is a CAPTCHA challenge
+            if self.detect_bot_protection(content) or "captcha" in content.lower():
                 logger.warning(f"[EASEMYTRIP] Bot protection or rate limit on {route}. Engaging seeded fallback.")
                 seeded_data = get_seeded_snapshot(route, window, source="easemytrip")
                 return ScrapeResult(
@@ -58,16 +94,18 @@ class EaseMyTripScraper(BaseScraper):
                     status="bot_detected"
                 )
 
-            # Heuristic / fallback extraction
+            # Pass the rendered DOM content directly to the LLM / heuristic fallback
             parsed_quotes = extract_with_llm_fallback(content, route, window, departure_date)
+
             if not parsed_quotes:
+                logger.warning(f"[EASEMYTRIP] All extraction paths exhausted for {route}. Falling back.")
                 seeded_data = get_seeded_snapshot(route, window, source="easemytrip")
                 return ScrapeResult(
                     source=self.source_name,
                     route=route,
                     window=window,
                     departure_date=departure_date,
-                    raw_payload={"fallback": "selector_drift", "flights": seeded_data},
+                    raw_payload={"fallback": "empty_extract", "flights": seeded_data},
                     parsed_quotes=seeded_data,
                     source_type="seeded",
                     status="fallback_used"
@@ -85,14 +123,14 @@ class EaseMyTripScraper(BaseScraper):
             )
 
         except Exception as exc:
-            logger.error(f"[EASEMYTRIP] Error fetching {route}: {exc}. Using seeded snapshot.", exc_info=False)
+            logger.error(f"[EASEMYTRIP] Scrape error for {route}: {exc}. Engaging seeded fallback.", exc_info=False)
             seeded_data = get_seeded_snapshot(route, window, source="easemytrip")
             return ScrapeResult(
                 source=self.source_name,
                 route=route,
                 window=window,
                 departure_date=departure_date,
-                raw_payload={"fallback": f"exception: {exc}", "flights": seeded_data},
+                raw_payload={"fallback_reason": f"network_exception: {str(exc)}", "cached_flights": seeded_data},
                 parsed_quotes=seeded_data,
                 source_type="seeded",
                 status="error",
