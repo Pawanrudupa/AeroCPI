@@ -108,6 +108,6 @@ def compute_backtest_metrics(session: Session) -> Dict[str, Any]:
         "correlation": correlation,
         "tracking_error": tracking_error,
         "benchmark_type": "OFFICIAL_GOVERNMENT_AGGREGATE",
-        "benchmark_source": "MoSPI CPI Div 07.3 Passenger transport services (Base 2024=100)",
+        "benchmark_source": "MoSPI CPI Div 07.3 Passenger transport services (Base 2024=100, Ref: PRID 2220040/2054203)",
         "series": series
     }

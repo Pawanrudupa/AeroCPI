@@ -52,8 +52,8 @@ export const LiveTrendChart: React.FC<LiveTrendChartProps> = ({
           </h2>
         </div>
         <div className="flex flex-col gap-1 font-mono text-[10px] mt-2 md:mt-0 md:text-right max-w-sm">
-          <span className="text-accent-amber font-bold">BACKTEST PENDING</span>
-          <span className="text-text-dim leading-tight">No calendar overlap yet between captured index history and MoSPI CPI Base 2024=100 (Div 07.3 Passenger transport services).</span>
+          <span className="text-accent-amber font-bold">BACKTEST PENDING (Base 2024=100)</span>
+          <span className="text-text-dim leading-tight">No calendar overlap yet between captured index history and MoSPI CPI Base 2024=100 (Div 07.3 Passenger transport services). See PRID 2220040 (Base Launch) & PRID 2054203.</span>
         </div>
       </div>
 
