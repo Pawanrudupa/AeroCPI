@@ -27,6 +27,18 @@ export async function apiFetch<T = unknown>(
   });
 
   if (!res.ok) {
+    if (res.status === 401 && typeof window !== "undefined") {
+      try {
+        localStorage.removeItem("aerocpi_token");
+        localStorage.removeItem("aerocpi_email");
+        localStorage.removeItem("aerocpi_role");
+      } catch {
+        /* noop */
+      }
+      if (window.location.pathname.startsWith("/dashboard")) {
+        window.location.href = "/login?expired=1";
+      }
+    }
     const body = await res.text().catch(() => "");
     throw new Error(
       `API ${res.status}: ${res.statusText}${body ? ` — ${body}` : ""}`,

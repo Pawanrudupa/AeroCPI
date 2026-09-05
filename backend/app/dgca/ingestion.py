@@ -36,10 +36,13 @@ def ingest_dgca_csv(session: Session, file_path: str) -> List[DGCABenchmark]:
             src_doc = (row.get("source_document") or "").strip()
             pub_date = (row.get("publication_date") or "").strip()
             src_url = (row.get("source_url") or "").strip() or None
+            b_type = (row.get("benchmark_type") or "OFFICIAL_GOVERNMENT").strip()
+            pax_str = (row.get("pax_count") or "").strip()
+            pax_cnt = int(pax_str) if pax_str and pax_str.isdigit() else None
 
             # Enforce hard provenance requirements
-            if not route or not month or not fare_str:
-                logger.warning(f"Skipping row {row_num}: Missing core fields (route, month, avg_fare)")
+            if not route or not month or (fare_str == "" and not pax_cnt):
+                logger.warning(f"Skipping row {row_num}: Missing core fields (route, month, avg_fare/pax_count)")
                 continue
 
             if not src_doc or not pub_date:
@@ -49,7 +52,7 @@ def ingest_dgca_csv(session: Session, file_path: str) -> List[DGCABenchmark]:
                 )
 
             try:
-                avg_fare = float(fare_str)
+                avg_fare = float(fare_str) if fare_str else 0.0
                 share = float(share_str) if share_str else 0.15
             except ValueError as e:
                 logger.error(f"Invalid numeric value at row {row_num}: {e}")
@@ -69,6 +72,8 @@ def ingest_dgca_csv(session: Session, file_path: str) -> List[DGCABenchmark]:
                 existing.source_document = src_doc
                 existing.publication_date = pub_date
                 existing.source_url = src_url
+                existing.benchmark_type = b_type
+                existing.pax_count = pax_cnt
                 session.add(existing)
                 ingested.append(existing)
             else:
@@ -79,7 +84,9 @@ def ingest_dgca_csv(session: Session, file_path: str) -> List[DGCABenchmark]:
                     passenger_share=share,
                     source_document=src_doc,
                     publication_date=pub_date,
-                    source_url=src_url
+                    source_url=src_url,
+                    benchmark_type=b_type,
+                    pax_count=pax_cnt
                 )
                 session.add(benchmark)
                 ingested.append(benchmark)

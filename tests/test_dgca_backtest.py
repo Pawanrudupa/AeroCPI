@@ -43,11 +43,11 @@ def test_dgca_ingestion_and_backtest(session: Session):
     ingested = ingest_dgca_csv(session, csv_file)
     assert len(ingested) >= 12
 
-    # Add sample IndexDaily points
-    d1 = dt.date(2026, 7, 15)
-    d2 = dt.date(2026, 8, 15)
+    # Add sample IndexDaily points matching real DGCA months
+    d1 = dt.date(2026, 1, 15)
+    d2 = dt.date(2026, 2, 15)
     session.add(IndexDaily(date=d1, index_value=100.0, base_period=d1, method="GEKS-Törnqvist"))
-    session.add(IndexDaily(date=d2, index_value=102.8, base_period=d1, method="GEKS-Törnqvist"))
+    session.add(IndexDaily(date=d2, index_value=101.4, base_period=d1, method="GEKS-Törnqvist"))
     session.commit()
 
     backtest = compute_backtest_metrics(session)

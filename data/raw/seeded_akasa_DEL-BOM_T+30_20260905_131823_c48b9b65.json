@@ -1,0 +1,38 @@
+{
+  "fallback": "empty_extract",
+  "flights": [
+    {
+      "arrTime": "09:45",
+      "base_fare": 2900.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 100.0,
+      "depTime": "07:30",
+      "flight_no": "QP-1102",
+      "taxes": 500.0,
+      "total_fare": 3850.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "16:30",
+      "base_fare": 2850.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 100.0,
+      "depTime": "14:15",
+      "flight_no": "QP-1124",
+      "taxes": 500.0,
+      "total_fare": 3800.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "21:15",
+      "base_fare": 2950.0,
+      "carrier": "Akasa Air",
+      "convenience_fee": 100.0,
+      "depTime": "19:00",
+      "flight_no": "QP-1186",
+      "taxes": 500.0,
+      "total_fare": 3900.0,
+      "udf": 350.0
+    }
+  ]
+}

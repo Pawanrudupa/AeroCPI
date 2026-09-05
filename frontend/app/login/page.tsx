@@ -89,6 +89,14 @@ export default function LoginPage() {
             </div>
           )}
 
+          {/* Expired Session Notice */}
+          {typeof window !== "undefined" && window.location.search.includes("expired=1") && !error && (
+            <div className="border border-accent-amber bg-accent-amber/10 px-4 py-3 text-xs font-mono text-accent-amber flex items-start gap-2">
+              <span className="font-bold shrink-0">NOTICE:</span>
+              <span>Session expired or server restarted. Please sign in to re-authenticate.</span>
+            </div>
+          )}
+
           {/* Email Field */}
           <div className="space-y-1.5">
             <label

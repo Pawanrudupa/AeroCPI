@@ -56,6 +56,27 @@ const AuthContext = createContext<AuthContextType | null>(null);
 /*  Provider                                                           */
 /* ------------------------------------------------------------------ */
 
+function isTokenValid(token: string): boolean {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return false;
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    const decoded = JSON.parse(jsonPayload);
+    if (decoded.exp && decoded.exp * 1000 < Date.now()) {
+      return false; // Expired
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
@@ -67,14 +88,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   const [isHydrated, setIsHydrated] = useState(false);
 
-  /* Hydrate from localStorage exactly once on mount */
+  /* Hydrate from localStorage exactly once on mount, verifying token expiry */
   useEffect(() => {
     try {
       const token = localStorage.getItem(STORAGE_KEYS.token);
       const userEmail = localStorage.getItem(STORAGE_KEYS.email);
       const role = localStorage.getItem(STORAGE_KEYS.role);
-      if (token && userEmail) {
+      if (token && userEmail && isTokenValid(token)) {
         setState({ token, userEmail, role, isAuthenticated: true });
+      } else if (token) {
+        // Token was present but is expired or invalid -> purge it
+        Object.values(STORAGE_KEYS).forEach((k) => {
+          localStorage.removeItem(k);
+        });
+        setState({
+          token: null,
+          userEmail: null,
+          role: null,
+          isAuthenticated: false,
+        });
       }
     } catch {
       /* SSR / incognito — localStorage may throw */

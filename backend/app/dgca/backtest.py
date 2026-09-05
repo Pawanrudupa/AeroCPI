@@ -107,7 +107,9 @@ def compute_backtest_metrics(session: Session) -> Dict[str, Any]:
     return {
         "status": "success",
         "months_compared": len(series),
+        "overlapping_points": len(aerocpi_vals),
         "correlation": correlation,
         "tracking_error": tracking_error,
+        "benchmark_type": "OFFICIAL_GOVERNMENT",
         "series": series
     }

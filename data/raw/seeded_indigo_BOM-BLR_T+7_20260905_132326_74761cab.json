@@ -1,0 +1,38 @@
+{
+  "cached_flights": [
+    {
+      "arrTime": "10:15",
+      "base_fare": 3800.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 150.0,
+      "depTime": "08:30",
+      "flight_no": "6E-5318",
+      "taxes": 600.0,
+      "total_fare": 4900.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "15:45",
+      "base_fare": 3900.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 150.0,
+      "depTime": "14:00",
+      "flight_no": "6E-5401",
+      "taxes": 600.0,
+      "total_fare": 5000.0,
+      "udf": 350.0
+    },
+    {
+      "arrTime": "21:15",
+      "base_fare": 3750.0,
+      "carrier": "IndiGo",
+      "convenience_fee": 150.0,
+      "depTime": "19:30",
+      "flight_no": "6E-5420",
+      "taxes": 600.0,
+      "total_fare": 4850.0,
+      "udf": 350.0
+    }
+  ],
+  "fallback_reason": "bot_detection_or_rate_limit"
+}

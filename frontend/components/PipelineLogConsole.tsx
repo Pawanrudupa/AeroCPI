@@ -70,6 +70,18 @@ export const PipelineLogConsole: React.FC = () => {
 
         if (!response.ok || !response.body) {
           setIsConnected(false);
+          if (response.status === 401 && typeof window !== "undefined") {
+            try {
+              localStorage.removeItem("aerocpi_token");
+              localStorage.removeItem("aerocpi_email");
+              localStorage.removeItem("aerocpi_role");
+            } catch {
+              /* noop */
+            }
+            if (window.location.pathname.startsWith("/dashboard")) {
+              window.location.href = "/login?expired=1";
+            }
+          }
           return;
         }
 

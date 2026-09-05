@@ -134,8 +134,10 @@ class DGCABenchmark(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     month: str = Field(index=True, nullable=False)  # e.g. '2026-07' or '2026-08'
     route: str = Field(index=True, nullable=False)  # 'DEL-BOM', etc.
-    avg_fare: float = Field(nullable=False)  # Average passenger yield / tariff in INR
+    avg_fare: float = Field(default=0.0, nullable=False)  # Average passenger yield / tariff in INR (0.0 if not published)
     passenger_share: float = Field(nullable=False)  # DGCA traffic share for weighting (PSD)
+    pax_count: Optional[int] = Field(default=None)  # Real DGCA monthly passenger count on route
+    benchmark_type: str = Field(default="OFFICIAL_GOVERNMENT")  # Explicit tag distinct from scraped LIVE/SEEDED
     
     # Provenance fields (User requirement: no fabricated data, explicit citations)
     source_document: str = Field(nullable=False)  # e.g. 'DGCA Monthly Air Transport Report - Table 4.1'
