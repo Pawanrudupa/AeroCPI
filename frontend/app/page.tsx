@@ -67,7 +67,7 @@ export default function LandingPage() {
                   term="GEKS-Törnqvist" 
                   definition="A multilateral index method that ensures transitivity (no chain drift) while handling the rapid product churn typical of airline pricing."
                 />{" "}
-                aggregation, and official DGCA benchmark validation.
+                aggregation, and official MoSPI benchmark validation.
               </p>
 
               {/* CTA */}
@@ -233,9 +233,9 @@ export default function LandingPage() {
                 {
                   step: "04",
                   title: "VALIDATE",
-                  desc: "Backtest pending calendar overlap with official MoSPI/DGCA publications. Provenance audit trail maintains 100% data integrity for future validation.",
+                  desc: "Backtest pending calendar overlap with official MoSPI publications. Provenance audit trail maintains 100% data integrity for future validation.",
                   accent: "text-signal-green",
-                  technicalDetails: "Automated test suite (pytest) compares generated indices against historical DGCA passenger yield benchmarks. Fails CI if correlation drops below 0.85.",
+                  technicalDetails: "Automated test suite (pytest) compares generated indices against historical MoSPI Div 07.3 CPI benchmarks. Fails CI if correlation drops below 0.85.",
                 },
               ].map((item) => (
                 <HoverExpandCard key={item.step} {...item} />
@@ -356,7 +356,7 @@ export default function LandingPage() {
               — GEKS-Törnqvist Multilateral Index (Eurostat/ILO Guidelines)
             </div>
             <div className="flex items-center gap-4 text-[11px]">
-              <span>DGCA PROVENANCE VERIFIED</span>
+              <span>MOSPI PROVENANCE VERIFIED</span>
               <span className="text-signal-green">AUTH: JWT + ARGON2</span>
             </div>
           </div>

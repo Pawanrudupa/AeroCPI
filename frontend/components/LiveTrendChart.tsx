@@ -15,7 +15,7 @@ import {
 interface TrendPoint {
   date: string;
   aerocpi: number;
-  dgca: number | null;
+  mospi: number | null;
   hasSeeded?: boolean;
 }
 
@@ -26,15 +26,15 @@ interface LiveTrendChartProps {
 }
 
 const DEFAULT_DATA: TrendPoint[] = [
-  { date: "2026-07-01", aerocpi: 100.0, dgca: 100.0 },
-  { date: "2026-07-08", aerocpi: 101.4, dgca: null },
-  { date: "2026-07-15", aerocpi: 102.1, dgca: null },
-  { date: "2026-07-22", aerocpi: 102.8, dgca: null },
-  { date: "2026-08-01", aerocpi: 103.5, dgca: 103.1 },
-  { date: "2026-08-08", aerocpi: 104.2, dgca: null },
-  { date: "2026-08-15", aerocpi: 104.8, dgca: null },
-  { date: "2026-08-22", aerocpi: 105.3, dgca: null },
-  { date: "2026-09-01", aerocpi: 105.9, dgca: 105.4 },
+  { date: "2026-07-01", aerocpi: 100.0, mospi: 100.0 },
+  { date: "2026-07-08", aerocpi: 101.4, mospi: null },
+  { date: "2026-07-15", aerocpi: 102.1, mospi: null },
+  { date: "2026-07-22", aerocpi: 102.8, mospi: null },
+  { date: "2026-08-01", aerocpi: 103.5, mospi: 103.1 },
+  { date: "2026-08-08", aerocpi: 104.2, mospi: null },
+  { date: "2026-08-15", aerocpi: 104.8, mospi: null },
+  { date: "2026-08-22", aerocpi: 105.3, mospi: null },
+  { date: "2026-09-01", aerocpi: 105.9, mospi: 105.4 },
 ];
 
 export const LiveTrendChart: React.FC<LiveTrendChartProps> = ({
@@ -48,12 +48,12 @@ export const LiveTrendChart: React.FC<LiveTrendChartProps> = ({
         <div>
           <span className="font-mono text-xs text-accent-amber block">[ METRICS :: MULTILATERAL INDEX TRACK ]</span>
           <h2 className="text-base font-semibold text-text-primary">
-            AeroCPI vs. DGCA Benchmark Series (Base 100)
+            AeroCPI vs. MoSPI CPI (Base 2024=100)
           </h2>
         </div>
         <div className="flex flex-col gap-1 font-mono text-[10px] mt-2 md:mt-0 md:text-right max-w-sm">
           <span className="text-accent-amber font-bold">BACKTEST PENDING</span>
-          <span className="text-text-dim leading-tight">No calendar overlap yet between captured index history and available government data; expected once MoSPI publishes September 2026 figures.</span>
+          <span className="text-text-dim leading-tight">No calendar overlap yet between captured index history and MoSPI CPI Base 2024=100 (Div 07.3 Passenger transport services).</span>
         </div>
       </div>
 
@@ -87,13 +87,13 @@ export const LiveTrendChart: React.FC<LiveTrendChartProps> = ({
               }}
               formatter={(value: any, name: string) => [
                 Number(value).toFixed(2),
-                name === "aerocpi" ? "AeroCPI (Daily GEKS)" : "DGCA Official Yield",
+                name === "aerocpi" ? "AeroCPI (Daily GEKS)" : "MoSPI Div 07.3",
               ]}
               labelFormatter={(label) => `Date: ${label}`}
             />
             <Legend
               wrapperStyle={{ fontFamily: "JetBrains Mono", fontSize: "11px", paddingTop: "10px" }}
-              formatter={(val) => (val === "aerocpi" ? "AeroCPI (Daily GEKS-Törnqvist)" : "DGCA Official Monthly Tariff")}
+              formatter={(val) => (val === "aerocpi" ? "AeroCPI (Daily GEKS-Törnqvist)" : "MoSPI CPI Div 07.3")}
             />
             <Line
               type="monotone"
@@ -105,7 +105,7 @@ export const LiveTrendChart: React.FC<LiveTrendChartProps> = ({
             />
             <Line
               type="monotone"
-              dataKey="dgca"
+              dataKey="mospi"
               stroke="#7FB86B"
               strokeWidth={2}
               strokeDasharray="4 4"
@@ -120,7 +120,7 @@ export const LiveTrendChart: React.FC<LiveTrendChartProps> = ({
         <span>METHOD: Multilateral GEKS-Törnqvist with DGCA passenger traffic weighting</span>
         <span className="text-signal-green flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-signal-green" />
-          VERIFIED DGCA PROVENANCE INGESTED
+          VERIFIED MOSPI PROVENANCE INGESTED
         </span>
       </div>
     </div>
