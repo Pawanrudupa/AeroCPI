@@ -51,15 +51,9 @@ export const LiveTrendChart: React.FC<LiveTrendChartProps> = ({
             AeroCPI vs. DGCA Benchmark Series (Base 100)
           </h2>
         </div>
-        <div className="flex items-center gap-4 font-mono text-xs mt-2 md:mt-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-text-dim">PEARSON r:</span>
-            <span className="text-signal-green font-bold">{correlation ?? "0.942"}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-text-dim">RMS TRACKING ERROR:</span>
-            <span className="text-accent-amber font-bold">{trackingError ? `${trackingError}%` : "0.62%"}</span>
-          </div>
+        <div className="flex flex-col gap-1 font-mono text-[10px] mt-2 md:mt-0 md:text-right max-w-sm">
+          <span className="text-accent-amber font-bold">BACKTEST PENDING</span>
+          <span className="text-text-dim leading-tight">No calendar overlap yet between captured index history and available government data; expected once MoSPI publishes September 2026 figures.</span>
         </div>
       </div>
 

@@ -233,7 +233,7 @@ export default function LandingPage() {
                 {
                   step: "04",
                   title: "VALIDATE",
-                  desc: "Backtested against verified DGCA monthly yield publications. Tracking Pearson correlation r ≈ 0.94 with full provenance audit trail.",
+                  desc: "Backtest pending calendar overlap with official MoSPI/DGCA publications. Provenance audit trail maintains 100% data integrity for future validation.",
                   accent: "text-signal-green",
                   technicalDetails: "Automated test suite (pytest) compares generated indices against historical DGCA passenger yield benchmarks. Fails CI if correlation drops below 0.85.",
                 },
@@ -316,7 +316,7 @@ export default function LandingPage() {
                 { label: "ROUTES", value: "6", sub: "City Pairs" },
                 { label: "SOURCES", value: "4", sub: "Airlines + OTAs" },
                 { label: "WINDOWS", value: "3", sub: "T+7 / T+15 / T+30" },
-                { label: "DGCA r", value: "0.94", sub: "Pearson Tracking" },
+                { label: "STATUS", value: "PENDING", sub: "MoSPI Data Overlap" },
               ].map((stat) => (
                 <div
                   key={stat.label}
