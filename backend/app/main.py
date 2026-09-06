@@ -453,27 +453,67 @@ async def pipeline_events(
 
 @app.post("/pipeline/trigger-sync-sse", tags=["Pipeline Operations"])
 def trigger_sync_sse(
+    route: Optional[str] = Query(None, description="Optional route to scope execution, e.g. DEL-BOM"),
+    window: Optional[str] = Query(None, description="Optional window to scope execution, e.g. T+7, T+15, T+30"),
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    """Trigger pipeline in background thread, emitting events via SSE bus."""
+    """
+    Trigger pipeline in background thread, emitting events via SSE bus.
+    Supports scoping to a single route and/or window for cost-effective testing and quota protection.
+    """
     if event_bus.is_running:
         raise HTTPException(status_code=409, detail="Pipeline already running")
 
+    # Validate route if provided
+    target_routes = None
+    if route:
+        clean_route = route.upper().strip()
+        parts = clean_route.split("-")
+        if len(parts) == 2 and parts[0] and parts[1]:
+            target_routes = [(parts[0].strip(), parts[1].strip())]
+        else:
+            raise HTTPException(status_code=400, detail="Invalid route format. Use ORIGIN-DEST, e.g. DEL-BOM")
+
+    target_windows = None
+    if window:
+        clean_window = window.upper().strip()
+        if clean_window in ["T+7", "T+15", "T+30"]:
+            target_windows = [clean_window]
+        else:
+            raise HTTPException(status_code=400, detail="Invalid window. Use T+7, T+15, or T+30")
+
+    scope_desc = f"ROUTE: {route.upper()}" if route else "FULL BASKET"
+    if window:
+        scope_desc += f" ({window.upper()})"
+
     def run_pipeline():
+        event_bus.reset_stop()
         event_bus.set_running(True)
         event_bus.publish(PipelineEvent(
             event_type=EventType.PIPELINE_START,
-            message="PIPELINE EXECUTION STARTED"
+            message=f"PIPELINE EXECUTION STARTED [{scope_desc}]"
         ))
         try:
             with Session(engine) as bg_session:
-                run_full_basket_pipeline(bg_session, limit_sources=True)
+                run_full_basket_pipeline(
+                    bg_session,
+                    limit_sources=True,
+                    routes=target_routes,
+                    windows=target_windows
+                )
                 calculate_and_save_daily_indices(bg_session)
-            event_bus.publish(PipelineEvent(
-                event_type=EventType.PIPELINE_END,
-                message="PIPELINE EXECUTION COMPLETE"
-            ))
+
+            if event_bus.should_stop():
+                event_bus.publish(PipelineEvent(
+                    event_type=EventType.PIPELINE_STOPPED,
+                    message="PIPELINE HALTED BY OPERATOR :: PARTIAL RUN PERSISTED"
+                ))
+            else:
+                event_bus.publish(PipelineEvent(
+                    event_type=EventType.PIPELINE_END,
+                    message=f"PIPELINE EXECUTION COMPLETE [{scope_desc}]"
+                ))
         except Exception as e:
             event_bus.publish(PipelineEvent(
                 event_type=EventType.SCRAPE_ERROR,
@@ -481,10 +521,30 @@ def trigger_sync_sse(
             ))
         finally:
             event_bus.set_running(False)
+            event_bus.reset_stop()
 
     thread = threading.Thread(target=run_pipeline, daemon=True)
     thread.start()
-    return {"status": "started", "message": "Pipeline execution started in background"}
+    return {"status": "started", "scope": scope_desc, "message": f"Pipeline execution started [{scope_desc}]"}
+
+
+@app.post("/pipeline/stop", tags=["Pipeline Operations"])
+def stop_pipeline(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Cancel an in-progress pipeline execution cleanly.
+    Halts further scraper calls while preserving all already-captured quotes and snapshots.
+    """
+    if not event_bus.is_running:
+        return {"status": "idle", "message": "No pipeline is currently running"}
+
+    event_bus.request_stop()
+    event_bus.publish(PipelineEvent(
+        event_type=EventType.PIPELINE_STOPPED,
+        message="PIPELINE STOP REQUESTED :: GRACEFUL SHUTDOWN IN PROGRESS..."
+    ))
+    return {"status": "stopping", "message": "Pipeline stop signal sent"}
 
 
 @app.get("/pipeline/surge-status", tags=["Pipeline Operations"])

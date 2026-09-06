@@ -148,9 +148,21 @@ export const api = {
       { method: "POST" },
     ),
 
-  triggerSyncSSE: (token: string) =>
+  triggerSyncSSE: (token: string, params?: { route?: string; window?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.route) query.set("route", params.route);
+    if (params?.window) query.set("window", params.window);
+    const qs = query.toString() ? `?${query.toString()}` : "";
+    return apiFetch<{ status: string; message: string; scope?: string }>(
+      `/pipeline/trigger-sync-sse${qs}`,
+      token,
+      { method: "POST" },
+    );
+  },
+
+  stopPipeline: (token: string) =>
     apiFetch<{ status: string; message: string }>(
-      "/pipeline/trigger-sync-sse",
+      "/pipeline/stop",
       token,
       { method: "POST" },
     ),

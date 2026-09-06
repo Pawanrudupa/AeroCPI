@@ -49,17 +49,36 @@ def get_all_scrapers():
     return scrapers
 
 
-def run_full_basket_pipeline(session: Session, limit_sources: bool = False) -> List[Dict[str, Any]]:
+def run_full_basket_pipeline(
+    session: Session,
+    limit_sources: bool = False,
+    routes: Optional[List[tuple]] = None,
+    windows: Optional[List[str]] = None
+) -> List[Dict[str, Any]]:
     """
-    Execute scrape and ETL pipeline across all city-pairs and advance windows.
-    Executes across all 6 sources (3 direct airlines + 3 OTAs) to ensure complete basket coverage.
+    Execute scrape and ETL pipeline across specified or all city-pairs and advance windows.
+    Executes across configured sources (airlines, OTAs, and SerpAPI Google Flights).
+    Checks event_bus.should_stop() before each step to cleanly halt if requested by user.
     """
+    from backend.app.events import event_bus, PipelineEvent, EventType
+
     scrapers = get_all_scrapers()
+    target_routes = routes or BASKET_ROUTES
+    target_windows = windows or ADVANCE_WINDOWS
 
     summary_results = []
-    for origin, dest in BASKET_ROUTES:
-        for window in ADVANCE_WINDOWS:
+    for origin, dest in target_routes:
+        for window in target_windows:
             for scraper in scrapers:
+                if event_bus.should_stop():
+                    logger.info("Pipeline stop signal received. Halting further scraper execution.")
+                    event_bus.publish(PipelineEvent(
+                        event_type=EventType.PIPELINE_STOPPED,
+                        message="PIPELINE STOPPED BY OPERATOR :: PROGRESS PRESERVED",
+                        route=f"{origin}-{dest}"
+                    ))
+                    return summary_results
+
                 try:
                     res = run_pipeline_for_route(
                         session=session,

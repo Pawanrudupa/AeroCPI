@@ -28,6 +28,7 @@ const EVENT_COLORS: Record<string, string> = {
   index_recomputed: "text-accent-amber",
   backtest_update: "text-text-primary",
   surge_detected: "text-alert",
+  pipeline_stopped: "text-alert font-bold",
   pipeline_idle: "text-text-dim",
 };
 
@@ -115,7 +116,8 @@ export const PipelineLogConsole: React.FC = () => {
                 setIsPipelineRunning(true);
               } else if (
                 event.event_type === "pipeline_end" ||
-                event.event_type === "pipeline_idle"
+                event.event_type === "pipeline_idle" ||
+                event.event_type === "pipeline_stopped"
               ) {
                 setIsPipelineRunning(false);
               }

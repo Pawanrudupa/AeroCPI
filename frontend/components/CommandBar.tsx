@@ -3,13 +3,16 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "@/lib/dashboard-context";
+import { useAuth } from "@/lib/auth";
+import { api } from "@/lib/api";
 
 export function CommandBar() {
   const [input, setInput] = useState("");
   const [response, setResponse] = useState<{ msg: string; type: "error" | "success" | "info" } | null>(null);
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const { setSurgeFilter, addPipelineEvent } = useDashboard();
+  const { token } = useAuth();
+  const { isPipelineRunning, setSurgeFilter, addPipelineEvent } = useDashboard();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -73,11 +76,50 @@ export function CommandBar() {
     } else if (cmd === "clear") {
       setSurgeFilter(false);
       setResponse({ msg: "Surge filter disabled", type: "success" });
+    } else if (cmd === "run") {
+      if (!token) {
+        setResponse({ msg: "Authentication required to trigger pipeline", type: "error" });
+      } else if (isPipelineRunning) {
+        setResponse({ msg: "Pipeline is already running. Use 'stop' to cancel.", type: "error" });
+      } else {
+        const routeArg = parts[1]?.toUpperCase();
+        const windowArg = parts[2]?.toUpperCase();
+        api.triggerSyncSSE(token, { route: routeArg, window: windowArg })
+          .then((res) => {
+            setResponse({
+              msg: res.message || `Started pipeline [${res.scope || "FULL"}]`,
+              type: "success"
+            });
+          })
+          .catch((err) => {
+            setResponse({
+              msg: err instanceof Error ? err.message : "Failed to start pipeline",
+              type: "error"
+            });
+          });
+      }
+    } else if (cmd === "stop") {
+      if (!token) {
+        setResponse({ msg: "Authentication required", type: "error" });
+      } else if (!isPipelineRunning) {
+        setResponse({ msg: "No pipeline is currently running", type: "info" });
+      } else {
+        api.stopPipeline(token)
+          .then(() => {
+            setResponse({ msg: "Stop signal sent :: halting pipeline cleanly...", type: "success" });
+          })
+          .catch((err) => {
+            setResponse({
+              msg: err instanceof Error ? err.message : "Failed to stop pipeline",
+              type: "error"
+            });
+          });
+      }
     } else if (cmd === "help") {
       setResponse({
         msg: isDev
-          ? "Commands: route <PAIR>, reports, dashboard, surge, clear, surge test [PAIR], help"
-          : "Commands: route <PAIR>, reports, dashboard, surge, clear, help",
+          ? "Commands: run [PAIR] [WINDOW], stop, route <PAIR>, reports, dashboard, surge, clear, surge test [PAIR], help"
+          : "Commands: run [PAIR] [WINDOW], stop, route <PAIR>, reports, dashboard, surge, clear, help",
         type: "info",
       });
     } else {
