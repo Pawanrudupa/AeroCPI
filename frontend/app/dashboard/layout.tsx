@@ -136,6 +136,16 @@ export default function DashboardLayout({
                   >
                     [ REPORTS ]
                   </Link>
+                  <Link
+                    href="/methodology"
+                    className={`px-2 py-1 transition-colors font-bold ${
+                      pathname.startsWith("/methodology")
+                        ? "text-accent-amber border-b border-accent-amber"
+                        : "text-text-dim hover:text-text-primary hover:bg-panel"
+                    }`}
+                  >
+                    [ METHODOLOGY ]
+                  </Link>
                 </nav>
 
                 {/* User info */}

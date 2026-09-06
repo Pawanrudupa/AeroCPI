@@ -31,6 +31,45 @@ export default function LandingPage() {
       {/* Effect 3: DotGridSpotlight now wraps the ENTIRE landing page */}
       <DotGridSpotlight className="min-h-screen">
         {/* ============================================================ */}
+        {/*  TOP NAVIGATION                                              */}
+        {/* ============================================================ */}
+        <header className="border-b border-line bg-panel/90 backdrop-blur-md px-4 md:px-8 py-2.5 sticky top-0 z-50 font-mono text-xs">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-accent-amber font-bold">[ AeroCPI ]</span>
+              <span className="hidden sm:inline text-text-dim">|</span>
+              <span className="hidden sm:inline text-text-dim text-[11px]">HIGH-FREQUENCY AIRFARE PRICE INDEX</span>
+            </div>
+            <nav className="flex items-center gap-2 text-[11px]">
+              <Link
+                href="/dashboard"
+                className="px-2.5 py-1 text-text-dim hover:text-text-primary hover:bg-panel transition-colors"
+              >
+                [ DASHBOARD ]
+              </Link>
+              <Link
+                href="/dashboard/reports"
+                className="px-2.5 py-1 text-text-dim hover:text-text-primary hover:bg-panel transition-colors"
+              >
+                [ REPORTS ]
+              </Link>
+              <Link
+                href="/methodology"
+                className="px-2.5 py-1 text-accent-amber font-bold hover:underline transition-colors"
+              >
+                [ METHODOLOGY ]
+              </Link>
+              <Link
+                href="/login"
+                className="ml-2 px-3 py-1 bg-accent-amber text-bg-void font-bold hover:bg-accent-amber/90 transition-colors"
+              >
+                ENTER TERMINAL →
+              </Link>
+            </nav>
+          </div>
+        </header>
+
+        {/* ============================================================ */}
         {/*  HERO SECTION                                                 */}
         {/* ============================================================ */}
         <section ref={heroRef} className="relative border-b border-line px-4 md:px-8 py-16 md:py-24">
@@ -72,12 +111,18 @@ export default function LandingPage() {
               </p>
 
               {/* CTA */}
-              <div className="flex items-center gap-4 pt-2">
+              <div className="flex flex-wrap items-center gap-3 pt-2">
                 <Link
                   href="/login"
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent-amber text-bg-void font-mono font-bold text-sm hover:bg-accent-amber/90 transition-colors relative z-50"
                 >
                   ENTER TERMINAL →
+                </Link>
+                <Link
+                  href="/methodology"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 border border-line bg-panel text-text-primary font-mono text-sm hover:border-accent-amber hover:text-accent-amber transition-colors relative z-50"
+                >
+                  METHODOLOGY &amp; CITATIONS →
                 </Link>
                 <span className="text-text-dim text-xs font-mono">
                   PROTOTYPE v1.0.0
@@ -196,6 +241,22 @@ export default function LandingPage() {
               that automated web-scraped airfare indexing is technically feasible
               and statistically rigorous enough to complement official CPI data.
             </div>
+
+            {/* Academic Grounding & Policy Callout */}
+            <div className="flex items-center justify-between flex-wrap gap-3 border border-line bg-panel/70 p-4 text-xs font-mono rounded-sm">
+              <div className="space-y-0.5">
+                <span className="text-accent-amber font-bold block">PEER-REVIEWED ECONOMETRIC FOUNDATIONS:</span>
+                <span className="text-text-dim">
+                  Grounded in Polidoro et al. (Istat HICP), Ivancic-Diewert-Fox GEKS, and Eurostat guidelines.
+                </span>
+              </div>
+              <Link
+                href="/methodology"
+                className="text-accent-amber hover:underline font-bold whitespace-nowrap"
+              >
+                VIEW METHODOLOGY &amp; CITATIONS →
+              </Link>
+            </div>
           </div>
         </section>
 
@@ -306,6 +367,14 @@ export default function LandingPage() {
                   <li>Expanding coverage to 20+ Tier 2/3 city pairs.</li>
                   <li>Full deployment of live scraping engine without synthetic fallback.</li>
                   <li>Integration of dynamic demand elasticity models.</li>
+                  <li>
+                    <Link
+                      href="/methodology#limitations-roadmap"
+                      className="text-accent-amber underline decoration-dashed underline-offset-4 hover:text-text-primary transition-colors font-mono text-xs inline-block mt-1"
+                    >
+                      Read full 3-phase technical roadmap &amp; policy vision →
+                    </Link>
+                  </li>
                 </ul>
               </div>
             </div>
@@ -362,7 +431,14 @@ export default function LandingPage() {
               — GEKS-Törnqvist Multilateral Index (Eurostat/ILO Guidelines)
             </div>
             <div className="flex items-center gap-4 text-[11px]">
-              <span>MOSPI PROVENANCE VERIFIED</span>
+              <Link
+                href="/methodology"
+                className="text-accent-amber hover:underline"
+              >
+                [ METHODOLOGY &amp; CITATIONS ]
+              </Link>
+              <span className="hidden sm:inline">•</span>
+              <span className="hidden sm:inline">MOSPI PROVENANCE VERIFIED</span>
               <span className="text-signal-green">AUTH: JWT + ARGON2</span>
             </div>
           </div>
