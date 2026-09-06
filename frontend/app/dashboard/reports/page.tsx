@@ -20,6 +20,11 @@ const ALL_SOURCES = [
 export default function ReportsPage() {
   const { token } = useAuth();
   const [quotes, setQuotes] = useState<FareQuoteRecord[]>([]);
+  const [coverageData, setCoverageData] = useState<Record<
+    string,
+    Record<string, { total: number; live: number; seeded: number }>
+  > | null>(null);
+  const [totalDbQuotes, setTotalDbQuotes] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -36,8 +41,13 @@ export default function ReportsPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const res = await api.rawFares(token!, { limit: 500 });
-        setQuotes(res.quotes);
+        const [faresRes, matrixRes] = await Promise.all([
+          api.rawFares(token!, { limit: 5000 }),
+          api.coverageMatrix(token!),
+        ]);
+        setQuotes(faresRes.quotes);
+        setCoverageData(matrixRes.matrix);
+        setTotalDbQuotes(matrixRes.total_quotes_in_db);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load telemetry quotes.");
       } finally {
@@ -61,7 +71,13 @@ export default function ReportsPage() {
   // Section 1: Source Reliability Scorecard
   const sourceScorecard = useMemo(() => {
     return ALL_SOURCES.map((src) => {
-      const srcQuotes = quotes.filter((q) => q.source.toLowerCase() === src.key.toLowerCase());
+      const srcQuotes = quotes.filter((q) => {
+        if (q.source.toLowerCase() !== src.key.toLowerCase()) return false;
+        if (selectedRoute !== "all" && q.route !== selectedRoute) return false;
+        if (selectedWindow !== "all" && q.window !== selectedWindow) return false;
+        if (selectedSourceType !== "all" && q.source_type !== selectedSourceType) return false;
+        return true;
+      });
       const total = srcQuotes.length;
       const live = srcQuotes.filter((q) => q.source_type === "live").length;
       const seeded = srcQuotes.filter((q) => q.source_type === "seeded").length;
@@ -88,7 +104,7 @@ export default function ReportsPage() {
         lastLiveTimestamp,
       };
     });
-  }, [quotes]);
+  }, [quotes, selectedRoute, selectedWindow, selectedSourceType]);
 
   // Section 2 & 3: Route x Window aggregations (Price Differential & Source Comparison)
   const routeWindowAggregates = useMemo(() => {
@@ -165,6 +181,10 @@ export default function ReportsPage() {
     return CORE_ROUTES.flatMap((route) =>
       ADVANCE_WINDOWS.map((window) => {
         const rowKey = `${route} ${window}`;
+        if (coverageData && coverageData[rowKey]) {
+          return { route, window, rowKey, sourceData: coverageData[rowKey] };
+        }
+
         const sourceData: Record<
           string,
           { total: number; live: number; seeded: number }
@@ -184,7 +204,7 @@ export default function ReportsPage() {
         return { route, window, rowKey, sourceData };
       })
     );
-  }, [quotes]);
+  }, [quotes, coverageData]);
 
   // Section 5: CSV Export function
   const handleExportCSV = () => {
@@ -428,7 +448,11 @@ export default function ReportsPage() {
               <span className="text-xs text-accent-amber font-bold">
                 [ 1. SOURCE RELIABILITY & PROVENANCE SCORECARD ]
               </span>
-              <span className="text-[11px] text-text-dim">6 ACTIVE CAPTURE ENGINES</span>
+              <span className="text-[11px] text-text-dim">
+                {selectedRoute !== "all" || selectedWindow !== "all" || selectedSourceType !== "all"
+                  ? `FILTERED SCOPE: ${selectedRoute !== "all" ? selectedRoute : "ALL ROUTES"} • ${selectedWindow !== "all" ? selectedWindow : "ALL WINDOWS"}${selectedSourceType !== "all" ? ` • ${selectedSourceType.toUpperCase()}` : ""}`
+                  : "6 ACTIVE CAPTURE ENGINES • GLOBAL BASKET"}
+              </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

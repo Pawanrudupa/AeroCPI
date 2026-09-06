@@ -131,13 +131,34 @@ export const api = {
   routeIndex: (token: string, pair: string) =>
     apiFetch<IndexRouteResponse>(`/index/route/${pair.toUpperCase()}`, token),
 
-  rawFares: (token: string, params?: { route?: string; limit?: number }) => {
+  rawFares: (
+    token: string,
+    params?: {
+      route?: string;
+      window?: string;
+      source?: string;
+      source_type?: string;
+      limit?: number;
+    }
+  ) => {
     const qs = new URLSearchParams();
-    if (params?.route) qs.set("route", params.route.toUpperCase());
+    if (params?.route && params.route !== "all") qs.set("route", params.route.toUpperCase());
+    if (params?.window && params.window !== "all") qs.set("window", params.window.toUpperCase());
+    if (params?.source && params.source !== "all") qs.set("source", params.source.toLowerCase());
+    if (params?.source_type && params.source_type !== "all") qs.set("source_type", params.source_type.toLowerCase());
     if (params?.limit) qs.set("limit", String(params.limit));
     const suffix = qs.toString() ? `?${qs}` : "";
     return apiFetch<FaresResponse>(`/fares/raw${suffix}`, token);
   },
+
+  coverageMatrix: (token: string) =>
+    apiFetch<{
+      total_quotes_in_db: number;
+      matrix: Record<
+        string,
+        Record<string, { total: number; live: number; seeded: number }>
+      >;
+    }>("/reports/coverage-matrix", token),
 
   backtest: (token: string) => apiFetch<unknown>("/backtest/dgca", token),
 

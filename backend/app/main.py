@@ -299,7 +299,7 @@ def get_raw_fares(
     window: Optional[str] = Query(None, description="T+7, T+15, T+30"),
     source: Optional[str] = Query(None, description="indigo, akasa, spicejet, easemytrip, cleartrip, makemytrip"),
     source_type: Optional[str] = Query(None, description="Filter by 'live' or 'seeded'"),
-    limit: int = Query(50, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=10000),
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
@@ -309,19 +309,72 @@ def get_raw_fares(
     and the explicit source_type ('live' | 'seeded').
     """
     query = select(FareQuote).order_by(FareQuote.scraped_at.desc())
-    if route:
+    if route and route.lower() != "all":
         query = query.where(FareQuote.route == route.upper())
-    if window:
+    if window and window.lower() != "all":
         query = query.where(FareQuote.window == window.upper())
-    if source:
+    if source and source.lower() != "all":
         query = query.where(FareQuote.source == source.lower())
-    if source_type:
+    if source_type and source_type.lower() != "all":
         query = query.where(FareQuote.source_type == source_type.lower())
 
     quotes = session.exec(query.limit(limit)).all()
     return {
         "count": len(quotes),
         "quotes": quotes
+    }
+
+
+@app.get("/reports/coverage-matrix", tags=["Reports"])
+def get_coverage_matrix(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Return exact captured data availability across all 6 sources x 18 route-window combinations.
+    Aggregates directly in SQL across the full database without row limit truncation.
+    """
+    from sqlalchemy import func
+    stmt = select(
+        FareQuote.route,
+        FareQuote.window,
+        func.lower(FareQuote.source).label("source"),
+        FareQuote.source_type,
+        func.count(FareQuote.id).label("count")
+    ).group_by(
+        FareQuote.route,
+        FareQuote.window,
+        func.lower(FareQuote.source),
+        FareQuote.source_type
+    )
+    rows = session.exec(stmt).all()
+
+    core_routes = ["DEL-BOM", "DEL-BLR", "BOM-BLR", "DEL-CCU", "BLR-HYD", "MAA-DEL"]
+    windows = ["T+7", "T+15", "T+30"]
+    sources = ["indigo", "akasa", "spicejet", "easemytrip", "cleartrip", "makemytrip"]
+
+    matrix = {}
+    for r in core_routes:
+        for w in windows:
+            key = f"{r} {w}"
+            matrix[key] = {
+                s: {"total": 0, "live": 0, "seeded": 0} for s in sources
+            }
+
+    for route_val, win_val, src_val, src_type, cnt in rows:
+        key = f"{route_val} {win_val}"
+        if key in matrix and src_val in matrix[key]:
+            matrix[key][src_val]["total"] += cnt
+            if src_type == "live":
+                matrix[key][src_val]["live"] += cnt
+            elif src_type == "seeded":
+                matrix[key][src_val]["seeded"] += cnt
+
+    total_db_quotes = session.exec(select(func.count(FareQuote.id))).one()
+
+    return {
+        "total_quotes_in_db": total_db_quotes,
+        "matrix": matrix
     }
 
 
@@ -354,7 +407,7 @@ def export_fares_pdf(
     if source_type and source_type.lower() != "all":
         query = query.where(FareQuote.source_type == source_type.lower())
 
-    quotes = session.exec(query.limit(500)).all()
+    quotes = session.exec(query.limit(5000)).all()
 
     # Plain-language descriptions for metadata box
     scope_route_desc = route.upper() if (route and route.lower() != "all") else "ALL SECTORS (6 Core Routes)"
