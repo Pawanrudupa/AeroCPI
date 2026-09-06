@@ -16,6 +16,8 @@ from backend.app.scraper.sources.spicejet import SpiceJetScraper
 from backend.app.scraper.sources.easemytrip import EaseMyTripScraper
 from backend.app.scraper.sources.cleartrip import CleartripScraper
 from backend.app.scraper.sources.makemytrip import MakeMyTripScraper
+from backend.app.scraper.sources.serpapi import SerpApiGoogleFlightsScraper
+from backend.app.config import settings
 from backend.app.scraper.engine import run_pipeline_for_route
 
 logger = logging.getLogger("aerocpi.basket")
@@ -33,8 +35,8 @@ ADVANCE_WINDOWS = ["T+7", "T+15", "T+30"]
 
 
 def get_all_scrapers():
-    """Instantiate all 6 configured scrapers."""
-    return [
+    """Instantiate all configured scrapers, including SerpAPI Google Flights when configured."""
+    scrapers = [
         IndiGoScraper(),
         AkasaScraper(),
         SpiceJetScraper(),
@@ -42,6 +44,9 @@ def get_all_scrapers():
         CleartripScraper(),
         MakeMyTripScraper(),
     ]
+    if settings.serpapi_key:
+        scrapers.append(SerpApiGoogleFlightsScraper())
+    return scrapers
 
 
 def run_full_basket_pipeline(session: Session, limit_sources: bool = False) -> List[Dict[str, Any]]:

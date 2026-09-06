@@ -100,7 +100,7 @@ def clean_and_normalize_quotes(
             "convenience_fee": conv_fee,
             "total_fare": round(total_fare, 2),
             "currency": raw.get("currency", "INR"),
-            "source": source.lower(),
+            "source": (raw.get("source") or source).lower(),
             "source_type": source_type,
             "raw_snapshot_id": snapshot_id
         })

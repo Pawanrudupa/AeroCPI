@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     # LLM Fallback (ARCHITECTURE.md Section 2: Gemini Flash)
     GEMINI_API_KEY: Optional[str] = None
 
+    # SerpAPI Integration (Google Flights live fare collection)
+    SERPAPI: Optional[str] = None
+    SERPAPI_API_KEY: Optional[str] = None
+
+    @property
+    def serpapi_key(self) -> Optional[str]:
+        return self.SERPAPI_API_KEY or self.SERPAPI
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

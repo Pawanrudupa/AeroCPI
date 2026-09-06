@@ -43,11 +43,28 @@ def test_dgca_ingestion_and_backtest(session: Session):
     ingested = ingest_dgca_csv(session, csv_file)
     assert len(ingested) >= 12
 
-    # Add sample IndexDaily points matching real DGCA months
+    # Add sample IndexDaily points matching MoSPI benchmark months
+    from backend.app.models import MospiBenchmark
     d1 = dt.date(2026, 1, 15)
     d2 = dt.date(2026, 2, 15)
     session.add(IndexDaily(date=d1, index_value=100.0, base_period=d1, method="GEKS-Törnqvist"))
     session.add(IndexDaily(date=d2, index_value=101.4, base_period=d1, method="GEKS-Törnqvist"))
+    session.add(MospiBenchmark(
+        month="2026-01",
+        cpi_index=103.50,
+        sector="Combined",
+        source_document="MoSPI CPI Press Release",
+        publication_date="2026-02-12",
+        source_url="https://pib.gov.in"
+    ))
+    session.add(MospiBenchmark(
+        month="2026-02",
+        cpi_index=104.20,
+        sector="Combined",
+        source_document="MoSPI CPI Press Release",
+        publication_date="2026-03-12",
+        source_url="https://pib.gov.in"
+    ))
     session.commit()
 
     backtest = compute_backtest_metrics(session)
