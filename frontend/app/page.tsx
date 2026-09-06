@@ -8,6 +8,7 @@ import { HeroScrollFlight } from "@/components/HeroScrollFlight";
 import { LiveActivityStrip } from "@/components/LiveActivityStrip";
 import { TooltipGlossary } from "@/components/TooltipGlossary";
 import { HoverExpandCard } from "@/components/HoverExpandCard";
+import { MaterialityGapSection } from "@/components/MaterialityGapSection";
 
 /**
  * Landing page — marketing/context only.
@@ -182,6 +183,11 @@ export default function LandingPage() {
               </table>
             </div>
 
+            {/* EMPIRICAL VALIDATION: MATERIALITY GAP ANALYSIS */}
+            <div className="pt-6 border-t border-line">
+              <MaterialityGapSection />
+            </div>
+
             {/* Framing note */}
             <div className="border border-line bg-panel px-5 py-4 text-xs font-mono text-text-dim">
               <span className="text-accent-amber font-bold">⚠ PROTOTYPE NOTICE:</span>{" "}
@@ -212,7 +218,7 @@ export default function LandingPage() {
                 {
                   step: "01",
                   title: "SCRAPE",
-                  desc: "Live fare collection from 4 sources (2 airlines, 2 OTAs) across 6 routes × 3 windows. Anti-bot detection with graceful fallback to seeded baselines.",
+                  desc: "Live fare collection from 6 sources (3 airlines, 3 OTAs) across 6 routes × 3 windows. Anti-bot detection with graceful fallback to seeded baselines.",
                   accent: "text-signal-green",
                   technicalDetails: "Executes Playwright cluster on background threads. Detects IP bans/CAPTCHAs and falls back to a deterministic synthetic data generator calibrated to real variance.",
                 },
@@ -314,7 +320,7 @@ export default function LandingPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-mono">
               {[
                 { label: "ROUTES", value: "6", sub: "City Pairs" },
-                { label: "SOURCES", value: "4", sub: "Airlines + OTAs" },
+                { label: "SOURCES", value: "6", sub: "Airlines + OTAs" },
                 { label: "WINDOWS", value: "3", sub: "T+7 / T+15 / T+30" },
                 { label: "STATUS", value: "PENDING", sub: "MoSPI Data Overlap" },
               ].map((stat) => (

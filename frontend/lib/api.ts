@@ -118,6 +118,45 @@ export interface FaresResponse {
   quotes: FareQuoteRecord[];
 }
 
+export interface MaterialityGapRoute {
+  route: string;
+  snapshot_fare: number;
+  snapshot_details: string;
+  continuous_avg: number;
+  divergence_pct: number;
+  abs_divergence_pct: number;
+  sample_size: number;
+  live_quotes: number;
+  seeded_quotes: number;
+  live_pct: number;
+}
+
+export interface MaterialityGapResponse {
+  methodology: {
+    snapshot_rule: string;
+    continuous_rule: string;
+    formula: string;
+    calendar_period: string;
+  };
+  provenance: {
+    total_quotes: number;
+    live_quotes: number;
+    seeded_quotes: number;
+    live_pct: number;
+    seeded_pct: number;
+    disclosure: string;
+  };
+  basket_summary: {
+    mean_absolute_divergence_pct: number;
+    mean_signed_divergence_pct: number;
+    max_route: string | null;
+    max_divergence_pct: number;
+    min_route: string | null;
+    min_divergence_pct: number;
+  };
+  routes: MaterialityGapRoute[];
+}
+
 /* ------------------------------------------------------------------ */
 /*  Typed endpoint functions                                           */
 /* ------------------------------------------------------------------ */
@@ -191,6 +230,12 @@ export const api = {
   surgeStatus: (token?: string | null) =>
     apiFetch<{ surges: Array<{ route: string; window: string; is_surge: boolean; current_avg: number; baseline_avg: number; pct_above: number }> }>(
       "/pipeline/surge-status",
+      token || null,
+    ),
+
+  materialityGap: (token?: string | null) =>
+    apiFetch<MaterialityGapResponse>(
+      "/public/materiality-gap",
       token || null,
     ),
 };

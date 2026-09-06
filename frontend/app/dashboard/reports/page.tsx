@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { api, API_BASE, type FareQuoteRecord } from "@/lib/api";
+import { MaterialityGapSection } from "@/components/MaterialityGapSection";
 
 const CORE_ROUTES = ["DEL-BOM", "DEL-BLR", "BOM-BLR", "DEL-CCU", "BLR-HYD", "MAA-DEL"];
 const ADVANCE_WINDOWS = ["T+7", "T+15", "T+30"];
@@ -744,6 +745,13 @@ export default function ReportsPage() {
               <span>* Any cell labeled [GAP] highlights an uncollected source/route/window coordinate.</span>
               <span className="text-text-dim">TOTAL AUDITED COORDINATES: 108</span>
             </div>
+          </div>
+
+          {/* ============================================================ */}
+          {/* SECTION 5: MATERIALITY GAP ANALYSIS                          */}
+          {/* ============================================================ */}
+          <div className="pt-2 border-t border-line/60">
+            <MaterialityGapSection title="[ 5. MATERIALITY GAP ANALYSIS :: MANUAL SAMPLING DISTORTION ]" />
           </div>
         </>
       )}
