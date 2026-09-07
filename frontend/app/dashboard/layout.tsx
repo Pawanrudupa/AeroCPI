@@ -146,6 +146,28 @@ export default function DashboardLayout({
                   >
                     [ METHODOLOGY ]
                   </Link>
+                  <Link
+                    href="/account"
+                    className={`px-2 py-1 transition-colors font-bold ${
+                      pathname.startsWith("/account")
+                        ? "text-accent-amber border-b border-accent-amber"
+                        : "text-text-dim hover:text-text-primary hover:bg-panel"
+                    }`}
+                  >
+                    [ ACCOUNT ]
+                  </Link>
+                  {role === "admin" && (
+                    <Link
+                      href="/admin/users"
+                      className={`px-2 py-1 transition-colors font-bold ${
+                        pathname.startsWith("/admin")
+                          ? "text-signal-green border-b border-signal-green"
+                          : "text-signal-green/80 hover:text-signal-green hover:bg-panel"
+                      }`}
+                    >
+                      [ ADMIN ]
+                    </Link>
+                  )}
                 </nav>
 
                 {/* User info */}

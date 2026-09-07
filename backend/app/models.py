@@ -18,8 +18,8 @@ def now_utc() -> dt.datetime:
 
 class User(SQLModel, table=True):
     """
-    User model for JWT-authenticated API access (ARCHITECTURE.md Section 2).
-    Used for demo analyst access and API clients.
+    User model for authenticated API access (ARCHITECTURE.md Section 2).
+    Supports ADMIN and ANALYST institutional roles and programmatic API keys.
     """
     __tablename__ = "users"
 
@@ -29,6 +29,33 @@ class User(SQLModel, table=True):
     role: str = Field(default="analyst")  # analyst, admin
     is_active: bool = Field(default=True)
     created_at: dt.datetime = Field(default_factory=now_utc)
+
+    # Institutional identity & security fields
+    name: Optional[str] = Field(default=None)
+    organization: Optional[str] = Field(default=None)
+    must_change_password: bool = Field(default=False)
+    last_login_at: Optional[dt.datetime] = Field(default=None)
+
+    # Programmatic API Key (Hashed at rest via SHA-256)
+    api_key_hash: Optional[str] = Field(default=None, index=True)
+    api_key_prefix: Optional[str] = Field(default=None)
+    api_key_created_at: Optional[dt.datetime] = Field(default=None)
+
+
+class LoginEvent(SQLModel, table=True):
+    """
+    Audit log for user authentication events.
+    Scoped strictly to the user's account for security review.
+    """
+    __tablename__ = "login_events"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True, nullable=False)
+    timestamp: dt.datetime = Field(default_factory=now_utc, index=True)
+    ip_address: Optional[str] = Field(default=None)
+    user_agent: Optional[str] = Field(default=None)
+    status: str = Field(default="success")  # success, failed
+
 
 
 class RawSnapshot(SQLModel, table=True):

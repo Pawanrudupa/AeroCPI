@@ -19,6 +19,15 @@ class Settings(BaseSettings):
     SEED_ANALYST_EMAIL: str = "demo.analyst@aerocpi.local"
     SEED_ANALYST_PASSWORD: Optional[str] = None
     
+    # Seed Admin User (Distinct ADMIN role bootstrap; loaded strictly from environment)
+    SEED_ADMIN_EMAIL: str = "admin@aerocpi.local"
+    BOOTSTRAP_ADMIN_PASSWORD: Optional[str] = None
+    SEED_ADMIN_PASSWORD: Optional[str] = None
+
+    @property
+    def admin_password(self) -> Optional[str]:
+        return self.BOOTSTRAP_ADMIN_PASSWORD or self.SEED_ADMIN_PASSWORD
+    
     # Raw landing zone (ARCHITECTURE.md Section 1 & 3: Immutable raw layer)
     RAW_STORAGE_DIR: str = "./data/raw"
     

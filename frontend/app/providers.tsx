@@ -1,6 +1,7 @@
 "use client";
 
 import { AuthProvider } from "@/lib/auth";
+import { DashboardProvider } from "@/lib/dashboard-context";
 import { GlobalPlaneCursor } from "@/components/GlobalPlaneCursor";
 
 /**
@@ -11,8 +12,10 @@ import { GlobalPlaneCursor } from "@/components/GlobalPlaneCursor";
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <GlobalPlaneCursor />
-      {children}
+      <DashboardProvider>
+        <GlobalPlaneCursor />
+        {children}
+      </DashboardProvider>
     </AuthProvider>
   );
 }

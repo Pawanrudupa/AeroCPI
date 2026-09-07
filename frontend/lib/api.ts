@@ -157,6 +157,56 @@ export interface MaterialityGapResponse {
   routes: MaterialityGapRoute[];
 }
 
+export interface UserAdminRecord {
+  id: number;
+  email: string;
+  name: string | null;
+  organization: string | null;
+  role: "admin" | "analyst";
+  is_active: boolean;
+  created_at: string;
+  last_login_at: string | null;
+  must_change_password: boolean;
+  has_api_key: boolean;
+}
+
+export interface ProvisionUserResponse {
+  status: string;
+  message: string;
+  user: UserAdminRecord;
+  temporary_password: string;
+}
+
+export interface UserProfileRecord {
+  id: number;
+  email: string;
+  name: string | null;
+  organization: string | null;
+  role: "admin" | "analyst";
+  is_active: boolean;
+  created_at: string;
+  last_login_at: string | null;
+  must_change_password: boolean;
+  api_key_prefix: string | null;
+  api_key_created_at: string | null;
+}
+
+export interface LoginEventRecord {
+  id: number;
+  timestamp: string;
+  ip_address: string;
+  user_agent: string;
+  status: "success" | "failed";
+}
+
+export interface ApiKeyGenerateResponse {
+  status: string;
+  api_key: string;
+  prefix: string;
+  created_at: string;
+  message: string;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Typed endpoint functions                                           */
 /* ------------------------------------------------------------------ */
@@ -238,6 +288,81 @@ export const api = {
       "/public/materiality-gap",
       token || null,
     ),
+
+  /* Admin Endpoints */
+  adminListUsers: (token: string) =>
+    apiFetch<UserAdminRecord[]>("/admin/users", token),
+
+  adminProvisionUser: (
+    token: string,
+    data: { email: string; name: string; organization: string; role: string }
+  ) =>
+    apiFetch<ProvisionUserResponse>("/admin/users", token, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  adminToggleUserStatus: (token: string, userId: number, isActive: boolean) =>
+    apiFetch<{ status: string; user_id: number; is_active: boolean }>(
+      `/admin/users/${userId}/status`,
+      token,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ is_active: isActive }),
+      }
+    ),
+
+  adminChangeUserRole: (token: string, userId: number, role: string) =>
+    apiFetch<{ status: string; user_id: number; role: string }>(
+      `/admin/users/${userId}/role`,
+      token,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ role }),
+      }
+    ),
+
+  adminResetPassword: (token: string, userId: number) =>
+    apiFetch<{ status: string; message: string; temporary_password: string }>(
+      `/admin/users/${userId}/reset-password`,
+      token,
+      { method: "POST" }
+    ),
+
+  /* Account & Profile Endpoints */
+  getProfile: (token: string) =>
+    apiFetch<UserProfileRecord>("/account/profile", token),
+
+  updateProfile: (
+    token: string,
+    data: { name?: string; organization?: string }
+  ) =>
+    apiFetch<UserProfileRecord>("/account/profile", token, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  changePassword: (
+    token: string,
+    data: { current_password: string; new_password: string }
+  ) =>
+    apiFetch<{ status: string; message: string }>("/account/change-password", token, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getLoginHistory: (token: string) =>
+    apiFetch<LoginEventRecord[]>("/account/login-history", token),
+
+  generateApiKey: (token: string) =>
+    apiFetch<ApiKeyGenerateResponse>("/account/api-key", token, {
+      method: "POST",
+    }),
+
+  revokeApiKey: (token: string) =>
+    apiFetch<{ status: string; message: string }>("/account/api-key", token, {
+      method: "DELETE",
+    }),
 };
 
 export const getSSEUrl = (token: string) =>

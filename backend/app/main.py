@@ -13,7 +13,7 @@ import statistics
 from contextlib import asynccontextmanager
 from typing import List, Optional, Dict, Any
 
-from fastapi import FastAPI, Depends, HTTPException, status, Query, Path, Response
+from fastapi import FastAPI, Depends, HTTPException, status, Query, Path, Response, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from starlette.responses import StreamingResponse
@@ -22,8 +22,16 @@ from pydantic import BaseModel
 
 from backend.app.config import settings
 from backend.app.database import get_session, create_db_and_tables, init_seed_user, engine
-from backend.app.models import User, FareQuote, IndexDaily, IndexRoute, DGCABenchmark
-from backend.app.security import verify_password, create_access_token, decode_access_token
+from backend.app.models import User, FareQuote, IndexDaily, IndexRoute, DGCABenchmark, LoginEvent
+from backend.app.security import (
+    verify_password,
+    hash_password,
+    create_access_token,
+    decode_access_token,
+    hash_api_key,
+    generate_api_key,
+    generate_temp_password,
+)
 from backend.app.dgca.ingestion import ingest_dgca_csv
 from backend.app.dgca.backtest import compute_backtest_metrics
 from backend.app.scraper.basket_runner import run_full_basket_pipeline
@@ -32,7 +40,7 @@ from backend.app.events import event_bus, PipelineEvent, EventType
 from backend.app.reports.pdf_generator import generate_reports_pdf
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 
 
 @asynccontextmanager
@@ -81,6 +89,9 @@ class TokenResponse(BaseModel):
     expires_in_minutes: int
     user_email: str
     role: str
+    must_change_password: bool = False
+    name: Optional[str] = None
+    organization: Optional[str] = None
 
 
 class LoginPayload(BaseModel):
@@ -89,10 +100,31 @@ class LoginPayload(BaseModel):
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
+    token: Optional[str] = Depends(oauth2_scheme),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
     session: Session = Depends(get_session)
 ) -> User:
-    """Validate Bearer JWT token and return authenticated User."""
+    """Validate X-API-Key header OR Bearer JWT token and return authenticated User."""
+    # 1. API Key Auth
+    if x_api_key:
+        api_hash = hash_api_key(x_api_key)
+        user = session.exec(select(User).where(User.api_key_hash == api_hash)).first()
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or inactive API key",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return user
+
+    # 2. Bearer Token Auth
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication credentials required (Bearer token or X-API-Key)",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     payload = decode_access_token(token)
     if not payload or "sub" not in payload:
         raise HTTPException(
@@ -109,6 +141,23 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
+
+
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Require ADMIN role for institutional administrator operations."""
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Institutional Administrator privileges required"
+        )
+    return current_user
+
+
+def _extract_client_ip(request: Request) -> Optional[str]:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else None
 
 
 # -----------------------------------------------------------------------------
@@ -131,50 +180,111 @@ def health_check():
 
 @app.post("/auth/token", response_model=TokenResponse, tags=["Authentication"])
 def login_for_access_token(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     session: Session = Depends(get_session)
 ):
     """
     OAuth2 compatible token login.
-    Uses Argon2 verification for demo analyst credentials.
+    Uses Argon2 verification for institutional user credentials.
+    Logs authentication attempts to login_events table.
     """
+    client_ip = _extract_client_ip(request)
+    user_agent = request.headers.get("user-agent")
     user = session.exec(select(User).where(User.email == form_data.username)).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    
+    if not user or not verify_password(form_data.password, user.hashed_password) or not user.is_active:
+        if user:
+            session.add(LoginEvent(
+                user_id=user.id,
+                timestamp=dt.datetime.now(dt.timezone.utc),
+                ip_address=client_ip,
+                user_agent=user_agent,
+                status="failed"
+            ))
+            session.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Success
+    user.last_login_at = dt.datetime.now(dt.timezone.utc)
+    session.add(user)
+    session.add(LoginEvent(
+        user_id=user.id,
+        timestamp=user.last_login_at,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        status="success"
+    ))
+    session.commit()
+    session.refresh(user)
+
     token = create_access_token({"sub": user.email, "role": user.role})
     return TokenResponse(
         access_token=token,
         token_type="bearer",
         expires_in_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
         user_email=user.email,
-        role=user.role
+        role=user.role,
+        must_change_password=user.must_change_password,
+        name=user.name,
+        organization=user.organization
     )
 
 
 @app.post("/auth/login", response_model=TokenResponse, tags=["Authentication"])
 def json_login(
+    request: Request,
     payload: LoginPayload,
     session: Session = Depends(get_session)
 ):
-    """JSON-body login for Next.js frontend consumption."""
+    """JSON-body login for Next.js frontend consumption with audit event logging."""
+    client_ip = _extract_client_ip(request)
+    user_agent = request.headers.get("user-agent")
     user = session.exec(select(User).where(User.email == payload.email)).first()
-    if not user or not verify_password(payload.password, user.hashed_password):
+    
+    if not user or not verify_password(payload.password, user.hashed_password) or not user.is_active:
+        if user:
+            session.add(LoginEvent(
+                user_id=user.id,
+                timestamp=dt.datetime.now(dt.timezone.utc),
+                ip_address=client_ip,
+                user_agent=user_agent,
+                status="failed"
+            ))
+            session.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Success
+    user.last_login_at = dt.datetime.now(dt.timezone.utc)
+    session.add(user)
+    session.add(LoginEvent(
+        user_id=user.id,
+        timestamp=user.last_login_at,
+        ip_address=client_ip,
+        user_agent=user_agent,
+        status="success"
+    ))
+    session.commit()
+    session.refresh(user)
+
     token = create_access_token({"sub": user.email, "role": user.role})
     return TokenResponse(
         access_token=token,
         token_type="bearer",
         expires_in_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
         user_email=user.email,
-        role=user.role
+        role=user.role,
+        must_change_password=user.must_change_password,
+        name=user.name,
+        organization=user.organization
     )
 
 
@@ -792,3 +902,353 @@ def get_surge_status(
             })
 
     return {"surges": results}
+
+
+# -----------------------------------------------------------------------------
+# Admin Provisioning & User Management (Enforced with require_admin)
+# -----------------------------------------------------------------------------
+
+class UserAdminView(BaseModel):
+    id: int
+    email: str
+    name: Optional[str] = None
+    organization: Optional[str] = None
+    role: str
+    is_active: bool
+    created_at: dt.datetime
+    last_login_at: Optional[dt.datetime] = None
+    must_change_password: bool = False
+    has_api_key: bool = False
+
+
+class CreateUserPayload(BaseModel):
+    email: str
+    name: str
+    organization: str
+    role: str = "analyst"
+
+
+class UpdateUserStatusPayload(BaseModel):
+    is_active: bool
+
+
+class UpdateUserRolePayload(BaseModel):
+    role: str
+
+
+@app.get("/admin/users", response_model=List[UserAdminView], tags=["Admin"])
+def list_admin_users(
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session)
+):
+    """List all accounts with their institutional profiles, roles, and access state."""
+    users = session.exec(select(User).order_by(User.id.desc())).all()
+    return [
+        UserAdminView(
+            id=u.id,
+            email=u.email,
+            name=u.name,
+            organization=u.organization,
+            role=u.role,
+            is_active=u.is_active,
+            created_at=u.created_at,
+            last_login_at=u.last_login_at,
+            must_change_password=u.must_change_password,
+            has_api_key=bool(u.api_key_hash)
+        )
+        for u in users
+    ]
+
+
+@app.post("/admin/users", tags=["Admin"])
+def provision_user(
+    payload: CreateUserPayload,
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session)
+):
+    """
+    Provision a new institutional account.
+    Generates a secure random initial password and requires password reset upon first login.
+    """
+    clean_email = payload.email.strip().lower()
+    clean_name = payload.name.strip()
+    clean_org = payload.organization.strip()
+    clean_role = payload.role.strip().lower()
+
+    if clean_role not in ["analyst", "admin"]:
+        raise HTTPException(status_code=400, detail="Role must be either 'analyst' or 'admin'")
+    if not clean_email or "@" not in clean_email:
+        raise HTTPException(status_code=400, detail="A valid institutional email address is required")
+    if not clean_name or not clean_org:
+        raise HTTPException(status_code=400, detail="Full name and organization are required")
+
+    existing = session.exec(select(User).where(User.email == clean_email)).first()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Account with email '{clean_email}' already exists")
+
+    temp_password = generate_temp_password(14)
+    new_user = User(
+        email=clean_email,
+        hashed_password=hash_password(temp_password),
+        name=clean_name,
+        organization=clean_org,
+        role=clean_role,
+        is_active=True,
+        must_change_password=True,
+        created_at=dt.datetime.now(dt.timezone.utc)
+    )
+    session.add(new_user)
+    session.commit()
+    session.refresh(new_user)
+
+    return {
+        "status": "success",
+        "message": f"Account for {new_user.email} provisioned successfully",
+        "user": UserAdminView(
+            id=new_user.id,
+            email=new_user.email,
+            name=new_user.name,
+            organization=new_user.organization,
+            role=new_user.role,
+            is_active=new_user.is_active,
+            created_at=new_user.created_at,
+            last_login_at=new_user.last_login_at,
+            must_change_password=new_user.must_change_password,
+            has_api_key=False
+        ),
+        "temporary_password": temp_password
+    }
+
+
+@app.patch("/admin/users/{user_id}/status", tags=["Admin"])
+def toggle_user_status(
+    user_id: int,
+    payload: UpdateUserStatusPayload,
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session)
+):
+    """Deactivate or reactivate an institutional account."""
+    target_user = session.get(User, user_id)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User account not found")
+    if target_user.id == admin.id and not payload.is_active:
+        raise HTTPException(status_code=400, detail="Administrators cannot deactivate their own account")
+
+    target_user.is_active = payload.is_active
+    session.add(target_user)
+    session.commit()
+    session.refresh(target_user)
+    return {"status": "success", "user_id": target_user.id, "is_active": target_user.is_active}
+
+
+@app.patch("/admin/users/{user_id}/role", tags=["Admin"])
+def change_user_role(
+    user_id: int,
+    payload: UpdateUserRolePayload,
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session)
+):
+    """Change an account's authorization role."""
+    target_user = session.get(User, user_id)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User account not found")
+    if target_user.id == admin.id:
+        raise HTTPException(status_code=400, detail="Administrators cannot alter their own role")
+    new_role = payload.role.strip().lower()
+    if new_role not in ["analyst", "admin"]:
+        raise HTTPException(status_code=400, detail="Role must be either 'analyst' or 'admin'")
+
+    target_user.role = new_role
+    session.add(target_user)
+    session.commit()
+    session.refresh(target_user)
+    return {"status": "success", "user_id": target_user.id, "role": target_user.role}
+
+
+@app.post("/admin/users/{user_id}/reset-password", tags=["Admin"])
+def admin_reset_password(
+    user_id: int,
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session)
+):
+    """Reset a user's password and enforce change on next login."""
+    target_user = session.get(User, user_id)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User account not found")
+
+    temp_password = generate_temp_password(14)
+    target_user.hashed_password = hash_password(temp_password)
+    target_user.must_change_password = True
+    session.add(target_user)
+    session.commit()
+    return {
+        "status": "success",
+        "message": f"Temporary password generated for {target_user.email}",
+        "temporary_password": temp_password
+    }
+
+
+# -----------------------------------------------------------------------------
+# Account & Profile Management (Any Authenticated User)
+# -----------------------------------------------------------------------------
+
+class ProfileUpdatePayload(BaseModel):
+    name: Optional[str] = None
+    organization: Optional[str] = None
+
+
+class ChangePasswordPayload(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class ProfileResponse(BaseModel):
+    id: int
+    email: str
+    name: Optional[str] = None
+    organization: Optional[str] = None
+    role: str
+    is_active: bool
+    created_at: dt.datetime
+    last_login_at: Optional[dt.datetime] = None
+    must_change_password: bool = False
+    api_key_prefix: Optional[str] = None
+    api_key_created_at: Optional[dt.datetime] = None
+
+
+@app.get("/account/profile", response_model=ProfileResponse, tags=["Account"])
+def get_account_profile(current_user: User = Depends(get_current_user)):
+    """Retrieve profile and credentials status for current authenticated user."""
+    return ProfileResponse(
+        id=current_user.id,
+        email=current_user.email,
+        name=current_user.name,
+        organization=current_user.organization,
+        role=current_user.role,
+        is_active=current_user.is_active,
+        created_at=current_user.created_at,
+        last_login_at=current_user.last_login_at,
+        must_change_password=current_user.must_change_password,
+        api_key_prefix=current_user.api_key_prefix,
+        api_key_created_at=current_user.api_key_created_at
+    )
+
+
+@app.patch("/account/profile", response_model=ProfileResponse, tags=["Account"])
+def update_account_profile(
+    payload: ProfileUpdatePayload,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Update editable profile details (name and organization). Email and role are immutable."""
+    if payload.name is not None:
+        current_user.name = payload.name.strip()
+    if payload.organization is not None:
+        current_user.organization = payload.organization.strip()
+
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+    return ProfileResponse(
+        id=current_user.id,
+        email=current_user.email,
+        name=current_user.name,
+        organization=current_user.organization,
+        role=current_user.role,
+        is_active=current_user.is_active,
+        created_at=current_user.created_at,
+        last_login_at=current_user.last_login_at,
+        must_change_password=current_user.must_change_password,
+        api_key_prefix=current_user.api_key_prefix,
+        api_key_created_at=current_user.api_key_created_at
+    )
+
+
+@app.post("/account/change-password", tags=["Account"])
+def change_user_password(
+    payload: ChangePasswordPayload,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Change account password with verification of current password."""
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password verification failed"
+        )
+    if len(payload.new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be at least 8 characters in length"
+        )
+
+    current_user.hashed_password = hash_password(payload.new_password)
+    current_user.must_change_password = False
+    session.add(current_user)
+    session.commit()
+    return {"status": "success", "message": "Password changed successfully"}
+
+
+@app.get("/account/login-history", tags=["Account"])
+def get_user_login_history(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Retrieve login event history scoped strictly to the calling user."""
+    events = session.exec(
+        select(LoginEvent)
+        .where(LoginEvent.user_id == current_user.id)
+        .order_by(LoginEvent.timestamp.desc())
+        .limit(25)
+    ).all()
+    return [
+        {
+            "id": e.id,
+            "timestamp": e.timestamp.isoformat(),
+            "ip_address": e.ip_address or "Internal / Loopback",
+            "user_agent": e.user_agent or "Direct API Client",
+            "status": e.status
+        }
+        for e in events
+    ]
+
+
+@app.post("/account/api-key", tags=["Account"])
+def generate_user_api_key(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Generate or regenerate personal API key for programmatic automation.
+    Hashed at rest via SHA-256. Plaintext key is displayed ONCE in this response.
+    """
+    full_key, key_hash, prefix = generate_api_key()
+    current_user.api_key_hash = key_hash
+    current_user.api_key_prefix = prefix
+    current_user.api_key_created_at = dt.datetime.now(dt.timezone.utc)
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+
+    return {
+        "status": "success",
+        "api_key": full_key,
+        "prefix": prefix,
+        "created_at": current_user.api_key_created_at.isoformat(),
+        "message": "Personal API key generated. Save this key in a secure vault; it cannot be viewed again."
+    }
+
+
+@app.delete("/account/api-key", tags=["Account"])
+def revoke_user_api_key(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Revoke existing API key immediately disabling programmatic access."""
+    current_user.api_key_hash = None
+    current_user.api_key_prefix = None
+    current_user.api_key_created_at = None
+    session.add(current_user)
+    session.commit()
+    return {"status": "success", "message": "API key revoked successfully"}
+

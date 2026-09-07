@@ -247,7 +247,7 @@ export const RadarBackground: React.FC = () => {
       // ========== 1. RADAR GRID ==========
 
       // Crosshair axes
-      ctx.strokeStyle = "rgba(201, 162, 39, 0.06)";
+      ctx.strokeStyle = "rgba(201, 162, 39, 0.18)";
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(0, cy);
@@ -262,13 +262,13 @@ export const RadarBackground: React.FC = () => {
         const r = (maxR / ringCount) * i;
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(201, 162, 39, ${0.04 + (i % 2 === 0 ? 0.02 : 0)})`;
-        ctx.lineWidth = 0.7;
+        ctx.strokeStyle = `rgba(201, 162, 39, ${0.14 + (i % 2 === 0 ? 0.04 : 0)})`;
+        ctx.lineWidth = 0.8;
         ctx.stroke();
       }
 
       // Diagonal crosshairs
-      ctx.strokeStyle = "rgba(201, 162, 39, 0.03)";
+      ctx.strokeStyle = "rgba(201, 162, 39, 0.08)";
       ctx.lineWidth = 0.5;
       ctx.beginPath();
       ctx.moveTo(cx - maxR, cy - maxR);

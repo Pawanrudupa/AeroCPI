@@ -6,6 +6,9 @@ Implements:
 """
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Any
+import hashlib
+import secrets
+import string
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -54,3 +57,36 @@ def decode_access_token(token: str) -> Optional[dict[str, Any]]:
         return payload
     except jwt.PyJWTError:
         return None
+
+
+def hash_api_key(key: str) -> str:
+    """Hash an API key using SHA-256 for secure storage at rest."""
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+
+def generate_api_key() -> tuple[str, str, str]:
+    """
+    Generate high-entropy personal API key.
+    Returns: (full_plaintext_key, hashed_key, display_prefix)
+    """
+    raw_token = secrets.token_urlsafe(32)
+    full_key = f"aero_live_{raw_token}"
+    hashed = hash_api_key(full_key)
+    prefix = f"{full_key[:14]}..."
+    return full_key, hashed, prefix
+
+
+def generate_temp_password(length: int = 14) -> str:
+    """Generate a high-entropy temporary password with mixed charset."""
+    chars = string.ascii_letters + string.digits + "!@#$%^&*"
+    # Ensure at least one uppercase, one lowercase, one digit, one special
+    password = [
+        secrets.choice(string.ascii_uppercase),
+        secrets.choice(string.ascii_lowercase),
+        secrets.choice(string.digits),
+        secrets.choice("!@#$%^&*")
+    ]
+    password += [secrets.choice(chars) for _ in range(length - 4)]
+    secrets.SystemRandom().shuffle(password)
+    return "".join(password)
+

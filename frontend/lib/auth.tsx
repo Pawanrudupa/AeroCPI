@@ -19,17 +19,22 @@ interface AuthState {
   userEmail: string | null;
   role: string | null;
   isAuthenticated: boolean;
+  mustChangePassword: boolean;
+  userName: string | null;
+  userOrganization: string | null;
 }
 
 interface LoginResult {
   success: boolean;
   error?: string;
+  mustChangePassword?: boolean;
 }
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<LoginResult>;
   logout: () => void;
   authFetch: (url: string, options?: RequestInit) => Promise<Response>;
+  updateAuthState: (partial: Partial<AuthState>) => void;
   isHydrated: boolean;
 }
 
@@ -41,6 +46,9 @@ const STORAGE_KEYS = {
   token: "aerocpi_token",
   email: "aerocpi_email",
   role: "aerocpi_role",
+  mustChange: "aerocpi_must_change",
+  name: "aerocpi_name",
+  org: "aerocpi_org",
 } as const;
 
 export const API_BASE =
@@ -85,6 +93,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userEmail: null,
     role: null,
     isAuthenticated: false,
+    mustChangePassword: false,
+    userName: null,
+    userOrganization: null,
   });
   const [isHydrated, setIsHydrated] = useState(false);
 
@@ -94,8 +105,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const token = localStorage.getItem(STORAGE_KEYS.token);
       const userEmail = localStorage.getItem(STORAGE_KEYS.email);
       const role = localStorage.getItem(STORAGE_KEYS.role);
+      const mustChange = localStorage.getItem(STORAGE_KEYS.mustChange) === "true";
+      const userName = localStorage.getItem(STORAGE_KEYS.name);
+      const userOrganization = localStorage.getItem(STORAGE_KEYS.org);
+
       if (token && userEmail && isTokenValid(token)) {
-        setState({ token, userEmail, role, isAuthenticated: true });
+        setState({
+          token,
+          userEmail,
+          role,
+          isAuthenticated: true,
+          mustChangePassword: mustChange,
+          userName,
+          userOrganization,
+        });
       } else if (token) {
         // Token was present but is expired or invalid -> purge it
         Object.values(STORAGE_KEYS).forEach((k) => {
@@ -106,12 +129,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           userEmail: null,
           role: null,
           isAuthenticated: false,
+          mustChangePassword: false,
+          userName: null,
+          userOrganization: null,
         });
       }
     } catch {
       /* SSR / incognito — localStorage may throw */
     }
     setIsHydrated(true);
+  }, []);
+
+  const updateAuthState = useCallback((partial: Partial<AuthState>) => {
+    setState((prev) => {
+      const next = { ...prev, ...partial };
+      try {
+        if (partial.mustChangePassword !== undefined) {
+          localStorage.setItem(STORAGE_KEYS.mustChange, String(partial.mustChangePassword));
+        }
+        if (partial.userName !== undefined) {
+          localStorage.setItem(STORAGE_KEYS.name, partial.userName || "");
+        }
+        if (partial.userOrganization !== undefined) {
+          localStorage.setItem(STORAGE_KEYS.org, partial.userOrganization || "");
+        }
+        if (partial.role !== undefined && partial.role) {
+          localStorage.setItem(STORAGE_KEYS.role, partial.role);
+        }
+      } catch {
+        /* noop */
+      }
+      return next;
+    });
   }, []);
 
   /* ---- login ---- */
@@ -138,15 +187,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(STORAGE_KEYS.token, data.access_token);
         localStorage.setItem(STORAGE_KEYS.email, data.user_email);
         localStorage.setItem(STORAGE_KEYS.role, data.role);
+        localStorage.setItem(STORAGE_KEYS.mustChange, String(data.must_change_password));
+        localStorage.setItem(STORAGE_KEYS.name, data.name || "");
+        localStorage.setItem(STORAGE_KEYS.org, data.organization || "");
 
         setState({
           token: data.access_token,
           userEmail: data.user_email,
           role: data.role,
           isAuthenticated: true,
+          mustChangePassword: Boolean(data.must_change_password),
+          userName: data.name || null,
+          userOrganization: data.organization || null,
         });
 
-        return { success: true };
+        return {
+          success: true,
+          mustChangePassword: Boolean(data.must_change_password),
+        };
       } catch {
         return {
           success: false,
@@ -171,6 +229,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       userEmail: null,
       role: null,
       isAuthenticated: false,
+      mustChangePassword: false,
+      userName: null,
+      userOrganization: null,
     });
     router.push("/login");
   }, [router]);
@@ -202,7 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ ...state, login, logout, authFetch, isHydrated }}
+      value={{ ...state, login, logout, authFetch, updateAuthState, isHydrated }}
     >
       {children}
     </AuthContext.Provider>
