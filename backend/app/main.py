@@ -13,7 +13,7 @@ import statistics
 from contextlib import asynccontextmanager
 from typing import List, Optional, Dict, Any
 
-from fastapi import FastAPI, Depends, HTTPException, status, Query, Path, Response, Header, Request
+from fastapi import FastAPI, Depends, HTTPException, status, Query, Path, Response, Header, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from starlette.responses import StreamingResponse
@@ -22,7 +22,15 @@ from pydantic import BaseModel
 
 from backend.app.config import settings
 from backend.app.database import get_session, create_db_and_tables, init_seed_user, engine
-from backend.app.models import User, FareQuote, IndexDaily, IndexRoute, DGCABenchmark, LoginEvent
+from backend.app.models import (
+    User,
+    FareQuote,
+    IndexDaily,
+    IndexRoute,
+    DGCABenchmark,
+    LoginEvent,
+    ElevationRequest,
+)
 from backend.app.security import (
     verify_password,
     hash_password,
@@ -38,6 +46,11 @@ from backend.app.scraper.basket_runner import run_full_basket_pipeline
 from backend.app.index.geks import calculate_and_save_daily_indices
 from backend.app.events import event_bus, PipelineEvent, EventType
 from backend.app.reports.pdf_generator import generate_reports_pdf
+from backend.app.email_service import (
+    send_elevation_request_notification,
+    send_elevation_status_notification,
+    SENT_EMAILS_LOG,
+)
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
@@ -285,6 +298,71 @@ def json_login(
         must_change_password=user.must_change_password,
         name=user.name,
         organization=user.organization
+    )
+
+
+class RegisterPayload(BaseModel):
+    email: str
+    password: str
+    name: Optional[str] = None
+    organization: Optional[str] = None
+
+
+@app.post("/auth/register", response_model=TokenResponse, tags=["Authentication"])
+def register_viewer(
+    request: Request,
+    payload: RegisterPayload,
+    session: Session = Depends(get_session)
+):
+    """
+    Self-service signup: instant and un-gated, assigns VIEWER role.
+    Viewers can explore public data and request elevation to ANALYST from /account.
+    """
+    clean_email = payload.email.strip().lower()
+    if not clean_email or "@" not in clean_email:
+        raise HTTPException(status_code=400, detail="A valid email address is required")
+    if len(payload.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters in length")
+
+    existing = session.exec(select(User).where(User.email == clean_email)).first()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"An account with email '{clean_email}' already exists")
+
+    new_user = User(
+        email=clean_email,
+        hashed_password=hash_password(payload.password),
+        name=payload.name.strip() if payload.name else None,
+        organization=payload.organization.strip() if payload.organization else None,
+        role="viewer",
+        is_active=True,
+        must_change_password=False,
+        created_at=dt.datetime.now(dt.timezone.utc),
+        last_login_at=dt.datetime.now(dt.timezone.utc)
+    )
+    session.add(new_user)
+    session.commit()
+    session.refresh(new_user)
+
+    client_ip = _extract_client_ip(request)
+    session.add(LoginEvent(
+        user_id=new_user.id,
+        timestamp=new_user.last_login_at,
+        ip_address=client_ip,
+        user_agent=request.headers.get("user-agent"),
+        status="success"
+    ))
+    session.commit()
+
+    token = create_access_token({"sub": new_user.email, "role": new_user.role})
+    return TokenResponse(
+        access_token=token,
+        token_type="bearer",
+        expires_in_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+        user_email=new_user.email,
+        role=new_user.role,
+        must_change_password=new_user.must_change_password,
+        name=new_user.name,
+        organization=new_user.organization
     )
 
 
@@ -975,8 +1053,8 @@ def provision_user(
     clean_org = payload.organization.strip()
     clean_role = payload.role.strip().lower()
 
-    if clean_role not in ["analyst", "admin"]:
-        raise HTTPException(status_code=400, detail="Role must be either 'analyst' or 'admin'")
+    if clean_role not in ["viewer", "analyst", "admin"]:
+        raise HTTPException(status_code=400, detail="Role must be 'viewer', 'analyst', or 'admin'")
     if not clean_email or "@" not in clean_email:
         raise HTTPException(status_code=400, detail="A valid institutional email address is required")
     if not clean_name or not clean_org:
@@ -1055,8 +1133,8 @@ def change_user_role(
     if target_user.id == admin.id:
         raise HTTPException(status_code=400, detail="Administrators cannot alter their own role")
     new_role = payload.role.strip().lower()
-    if new_role not in ["analyst", "admin"]:
-        raise HTTPException(status_code=400, detail="Role must be either 'analyst' or 'admin'")
+    if new_role not in ["viewer", "analyst", "admin"]:
+        raise HTTPException(status_code=400, detail="Role must be 'viewer', 'analyst', or 'admin'")
 
     target_user.role = new_role
     session.add(target_user)
@@ -1251,4 +1329,308 @@ def revoke_user_api_key(
     session.add(current_user)
     session.commit()
     return {"status": "success", "message": "API key revoked successfully"}
+
+
+# -----------------------------------------------------------------------------
+# Analyst Elevation Requests & Email Notifications
+# -----------------------------------------------------------------------------
+
+class ElevationRequestPayload(BaseModel):
+    reason: str
+
+
+class ElevationReviewPayload(BaseModel):
+    review_notes: Optional[str] = None
+
+
+class ElevationRequestView(BaseModel):
+    id: int
+    user_id: int
+    user_email: str
+    user_name: Optional[str] = None
+    user_organization: Optional[str] = None
+    reason: str
+    status: str
+    created_at: dt.datetime
+    reviewed_at: Optional[dt.datetime] = None
+    reviewed_by: Optional[str] = None
+    review_notes: Optional[str] = None
+
+
+@app.post("/account/elevation-request", response_model=Dict[str, Any], tags=["Account"])
+def submit_elevation_request(
+    payload: ElevationRequestPayload,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Submit an analyst elevation request from an authenticated account.
+    Enforces that only one pending request can exist per user at a time.
+    Dispatches a notification email to ADMIN_NOTIFICATION_EMAIL in the background.
+    """
+    clean_reason = payload.reason.strip()
+    if len(clean_reason) < 10:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Justification reason must be at least 10 characters in length"
+        )
+
+    if current_user.role in ["admin", "analyst"]:
+        return {
+            "status": "noop",
+            "message": f"Account already holds '{current_user.role.upper()}' privileges.",
+            "request": None
+        }
+
+    # Check for existing pending request
+    pending = session.exec(
+        select(ElevationRequest)
+        .where(ElevationRequest.user_id == current_user.id, ElevationRequest.status == "pending")
+    ).first()
+    if pending:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An elevation request is already pending review by an administrator."
+        )
+
+    req = ElevationRequest(
+        user_id=current_user.id,
+        user_email=current_user.email,
+        user_name=current_user.name,
+        user_organization=current_user.organization,
+        reason=clean_reason,
+        status="pending",
+        created_at=dt.datetime.now(dt.timezone.utc)
+    )
+    session.add(req)
+    session.commit()
+    session.refresh(req)
+
+    # Dispatch notification email to admin in background
+    background_tasks.add_task(
+        send_elevation_request_notification,
+        requester_email=current_user.email,
+        requester_name=current_user.name,
+        requester_org=current_user.organization,
+        reason=clean_reason,
+        created_at=req.created_at
+    )
+
+    return {
+        "status": "success",
+        "message": "Elevation request submitted. Institutional administrators have been notified via email.",
+        "request": ElevationRequestView(
+            id=req.id,
+            user_id=req.user_id,
+            user_email=req.user_email,
+            user_name=req.user_name,
+            user_organization=req.user_organization,
+            reason=req.reason,
+            status=req.status,
+            created_at=req.created_at,
+            reviewed_at=req.reviewed_at,
+            reviewed_by=req.reviewed_by,
+            review_notes=req.review_notes
+        )
+    }
+
+
+@app.get("/account/elevation-request", tags=["Account"])
+def get_current_elevation_request(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Retrieve the latest elevation request status for the current authenticated user."""
+    latest = session.exec(
+        select(ElevationRequest)
+        .where(ElevationRequest.user_id == current_user.id)
+        .order_by(ElevationRequest.id.desc())
+    ).first()
+
+    if not latest:
+        return {"request": None}
+
+    return {
+        "request": ElevationRequestView(
+            id=latest.id,
+            user_id=latest.user_id,
+            user_email=latest.user_email,
+            user_name=latest.user_name,
+            user_organization=latest.user_organization,
+            reason=latest.reason,
+            status=latest.status,
+            created_at=latest.created_at,
+            reviewed_at=latest.reviewed_at,
+            reviewed_by=latest.reviewed_by,
+            review_notes=latest.review_notes
+        )
+    }
+
+
+@app.get("/admin/elevation-requests", response_model=List[ElevationRequestView], tags=["Admin"])
+def list_elevation_requests(
+    status_filter: Optional[str] = Query(None, alias="status", description="Filter by pending, approved, or rejected"),
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session)
+):
+    """List elevation requests for institutional review. Filterable by status."""
+    query = select(ElevationRequest).order_by(ElevationRequest.created_at.desc())
+    if status_filter and status_filter.lower() != "all":
+        query = query.where(ElevationRequest.status == status_filter.lower().strip())
+
+    records = session.exec(query).all()
+    return [
+        ElevationRequestView(
+            id=r.id,
+            user_id=r.user_id,
+            user_email=r.user_email,
+            user_name=r.user_name,
+            user_organization=r.user_organization,
+            reason=r.reason,
+            status=r.status,
+            created_at=r.created_at,
+            reviewed_at=r.reviewed_at,
+            reviewed_by=r.reviewed_by,
+            review_notes=r.review_notes
+        )
+        for r in records
+    ]
+
+
+@app.post("/admin/elevation-requests/{request_id}/approve", tags=["Admin"])
+def approve_elevation_request(
+    request_id: int,
+    background_tasks: BackgroundTasks,
+    payload: Optional[ElevationReviewPayload] = None,
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session)
+):
+    """
+    Approve an elevation request.
+    Elevates the requester's role to ANALYST in the database.
+    Sends confirmation email to the requester in the background.
+    """
+    req = session.get(ElevationRequest, request_id)
+    if not req:
+        raise HTTPException(status_code=404, detail="Elevation request not found")
+
+    if req.status == "approved":
+        raise HTTPException(status_code=400, detail="Elevation request is already approved")
+
+    target_user = session.get(User, req.user_id)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Associated user account no longer exists")
+
+    notes = payload.review_notes.strip() if payload and payload.review_notes else None
+    now = dt.datetime.now(dt.timezone.utc)
+
+    req.status = "approved"
+    req.reviewed_at = now
+    req.reviewed_by = admin.email
+    req.review_notes = notes
+
+    # Elevate user to analyst
+    target_user.role = "analyst"
+
+    session.add(req)
+    session.add(target_user)
+    session.commit()
+    session.refresh(req)
+    session.refresh(target_user)
+
+    # Dispatch confirmation email to requester in background
+    background_tasks.add_task(
+        send_elevation_status_notification,
+        recipient_email=target_user.email,
+        recipient_name=target_user.name,
+        status="approved",
+        review_notes=notes
+    )
+
+    return {
+        "status": "success",
+        "message": f"Elevation request approved. {target_user.email} elevated to ANALYST role.",
+        "request": ElevationRequestView(
+            id=req.id,
+            user_id=req.user_id,
+            user_email=req.user_email,
+            user_name=req.user_name,
+            user_organization=req.user_organization,
+            reason=req.reason,
+            status=req.status,
+            created_at=req.created_at,
+            reviewed_at=req.reviewed_at,
+            reviewed_by=req.reviewed_by,
+            review_notes=req.review_notes
+        )
+    }
+
+
+@app.post("/admin/elevation-requests/{request_id}/reject", tags=["Admin"])
+def reject_elevation_request(
+    request_id: int,
+    background_tasks: BackgroundTasks,
+    payload: Optional[ElevationReviewPayload] = None,
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session)
+):
+    """
+    Reject an elevation request.
+    Leaves the user's role unchanged.
+    Sends denial notification email to the requester in the background.
+    """
+    req = session.get(ElevationRequest, request_id)
+    if not req:
+        raise HTTPException(status_code=404, detail="Elevation request not found")
+
+    target_user = session.get(User, req.user_id)
+    notes = payload.review_notes.strip() if payload and payload.review_notes else None
+    now = dt.datetime.now(dt.timezone.utc)
+
+    req.status = "rejected"
+    req.reviewed_at = now
+    req.reviewed_by = admin.email
+    req.review_notes = notes
+
+    session.add(req)
+    session.commit()
+    session.refresh(req)
+
+    # Dispatch confirmation email to requester if user exists
+    if target_user:
+        background_tasks.add_task(
+            send_elevation_status_notification,
+            recipient_email=target_user.email,
+            recipient_name=target_user.name,
+            status="rejected",
+            review_notes=notes
+        )
+
+    return {
+        "status": "success",
+        "message": f"Elevation request rejected for {req.user_email}.",
+        "request": ElevationRequestView(
+            id=req.id,
+            user_id=req.user_id,
+            user_email=req.user_email,
+            user_name=req.user_name,
+            user_organization=req.user_organization,
+            reason=req.reason,
+            status=req.status,
+            created_at=req.created_at,
+            reviewed_at=req.reviewed_at,
+            reviewed_by=req.reviewed_by,
+            review_notes=req.review_notes
+        )
+    }
+
+
+@app.get("/admin/email-log", tags=["Admin"])
+def get_admin_email_log(
+    admin: User = Depends(require_admin)
+):
+    """Retrieve in-memory audit log of sent transactional emails."""
+    return {"emails": SENT_EMAILS_LOG[-50:]}
+
 

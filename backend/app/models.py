@@ -57,6 +57,26 @@ class LoginEvent(SQLModel, table=True):
     status: str = Field(default="success")  # success, failed
 
 
+class ElevationRequest(SQLModel, table=True):
+    """
+    Analyst elevation request submitted by a user.
+    Allows institutional admins to review, approve, or reject access requests.
+    """
+    __tablename__ = "elevation_requests"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True, nullable=False)
+    user_email: str = Field(index=True, nullable=False)
+    user_name: Optional[str] = Field(default=None)
+    user_organization: Optional[str] = Field(default=None)
+    reason: str = Field(nullable=False)
+    status: str = Field(default="pending", index=True)  # 'pending', 'approved', 'rejected'
+    created_at: dt.datetime = Field(default_factory=now_utc, index=True)
+    reviewed_at: Optional[dt.datetime] = Field(default=None)
+    reviewed_by: Optional[str] = Field(default=None)
+    review_notes: Optional[str] = Field(default=None)
+
+
 
 class RawSnapshot(SQLModel, table=True):
     """

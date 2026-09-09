@@ -152,6 +152,25 @@ export default function LoginPage() {
             )}
           </button>
 
+          {/* New User / Self-Service Signup Link */}
+          <div className="border border-line bg-panel/70 p-3.5 flex items-center justify-between gap-3 text-xs font-mono">
+            <div className="space-y-0.5">
+              <div className="text-text-primary font-bold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-signal-green" />
+                <span>NEW RESEARCHER / OBSERVER?</span>
+              </div>
+              <div className="text-[11px] text-text-dim font-sans">
+                Get instant self-service VIEWER access.
+              </div>
+            </div>
+            <Link
+              href="/signup"
+              className="px-3 py-1.5 bg-signal-green/10 border border-signal-green text-signal-green hover:bg-signal-green hover:text-bg-void transition-colors text-[11px] font-bold shrink-0"
+            >
+              SIGN UP →
+            </Link>
+          </div>
+
           {/* Demo Account Notice */}
           <div className="border border-line bg-bg-void/60 px-4 py-3 text-[11px] font-mono text-text-dim space-y-1">
             <p>

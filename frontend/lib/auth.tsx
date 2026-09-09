@@ -32,6 +32,12 @@ interface LoginResult {
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<LoginResult>;
+  register: (payload: {
+    email: string;
+    password: string;
+    name?: string;
+    organization?: string;
+  }) => Promise<LoginResult>;
   logout: () => void;
   authFetch: (url: string, options?: RequestInit) => Promise<Response>;
   updateAuthState: (partial: Partial<AuthState>) => void;
@@ -215,6 +221,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  /* ---- register (instant self-service VIEWER signup) ---- */
+  const register = useCallback(
+    async (payload: {
+      email: string;
+      password: string;
+      name?: string;
+      organization?: string;
+    }): Promise<LoginResult> => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          return {
+            success: false,
+            error:
+              (body as Record<string, string>).detail ||
+              `Registration failed (HTTP ${res.status})`,
+          };
+        }
+
+        const data = await res.json();
+        localStorage.setItem(STORAGE_KEYS.token, data.access_token);
+        localStorage.setItem(STORAGE_KEYS.email, data.user_email);
+        localStorage.setItem(STORAGE_KEYS.role, data.role);
+        localStorage.setItem(STORAGE_KEYS.mustChange, String(data.must_change_password));
+        localStorage.setItem(STORAGE_KEYS.name, data.name || "");
+        localStorage.setItem(STORAGE_KEYS.org, data.organization || "");
+
+        setState({
+          token: data.access_token,
+          userEmail: data.user_email,
+          role: data.role,
+          isAuthenticated: true,
+          mustChangePassword: Boolean(data.must_change_password),
+          userName: data.name || null,
+          userOrganization: data.organization || null,
+        });
+
+        return {
+          success: true,
+          mustChangePassword: Boolean(data.must_change_password),
+        };
+      } catch {
+        return {
+          success: false,
+          error: "Network error — is the API server running on port 8000?",
+        };
+      }
+    },
+    [],
+  );
+
   /* ---- logout ---- */
   const logout = useCallback(() => {
     Object.values(STORAGE_KEYS).forEach((k) => {
@@ -263,7 +326,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ ...state, login, logout, authFetch, updateAuthState, isHydrated }}
+      value={{ ...state, login, register, logout, authFetch, updateAuthState, isHydrated }}
     >
       {children}
     </AuthContext.Provider>

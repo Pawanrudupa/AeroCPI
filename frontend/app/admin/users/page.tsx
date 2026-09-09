@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
-import { api, type UserAdminRecord } from "@/lib/api";
+import { api, type UserAdminRecord, type ElevationRequestRecord } from "@/lib/api";
 import { InstitutionalNavbar } from "@/components/InstitutionalNavbar";
 import { DotGridSpotlight } from "@/components/DotGridSpotlight";
 
@@ -33,13 +33,22 @@ export default function AdminUsersPage() {
   // Action status message
   const [statusMsg, setStatusMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
+  // Elevation Requests State
+  const [elevationRequests, setElevationRequests] = useState<ElevationRequestRecord[]>([]);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [elevationTab, setElevationTab] = useState<"pending" | "all">("pending");
+
   const fetchUsers = useCallback(async () => {
     if (!token) return;
     try {
       setLoading(true);
       setError(null);
-      const data = await api.adminListUsers(token);
-      setUsers(data);
+      const [userData, elevData] = await Promise.all([
+        api.adminListUsers(token),
+        api.adminListElevationRequests(token).catch(() => []),
+      ]);
+      setUsers(userData);
+      setElevationRequests(elevData);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to load accounts";
       setError(msg);
@@ -47,6 +56,52 @@ export default function AdminUsersPage() {
       setLoading(false);
     }
   }, [token]);
+
+  const handleApproveElevation = async (req: ElevationRequestRecord) => {
+    if (!token) return;
+    const notes = prompt(
+      `Approve analyst access for ${req.user_email}? Optional message to user:`,
+      "Institutional analyst privileges approved."
+    );
+    if (notes === null) return;
+    setActionLoadingId(req.id);
+    try {
+      await api.adminApproveElevationRequest(token, req.id, notes || undefined);
+      setStatusMsg({
+        text: `Elevation approved for ${req.user_email}. User elevated to ANALYST & confirmation email dispatched.`,
+        type: "success",
+      });
+      fetchUsers();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to approve elevation request";
+      setStatusMsg({ text: msg, type: "error" });
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleRejectElevation = async (req: ElevationRequestRecord) => {
+    if (!token) return;
+    const notes = prompt(
+      `Reject elevation request for ${req.user_email}? Optional explanation sent to requester:`,
+      "Request declined at this time."
+    );
+    if (notes === null) return;
+    setActionLoadingId(req.id);
+    try {
+      await api.adminRejectElevationRequest(token, req.id, notes || undefined);
+      setStatusMsg({
+        text: `Elevation request rejected for ${req.user_email}. Notification email dispatched.`,
+        type: "success",
+      });
+      fetchUsers();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to reject elevation request";
+      setStatusMsg({ text: msg, type: "error" });
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -195,6 +250,11 @@ export default function AdminUsersPage() {
   const activeCount = users.filter((u) => u.is_active).length;
   const adminCount = users.filter((u) => u.role === "admin").length;
   const analystCount = users.filter((u) => u.role === "analyst").length;
+  const pendingElevationCount = elevationRequests.filter((r) => r.status === "pending").length;
+  const displayedElevationRequests =
+    elevationTab === "pending"
+      ? elevationRequests.filter((r) => r.status === "pending")
+      : elevationRequests;
 
   return (
     <div className="min-h-screen bg-bg-void text-text-primary flex flex-col font-sans selection:bg-accent-amber selection:text-bg-void">
@@ -260,7 +320,7 @@ export default function AdminUsersPage() {
             )}
 
             {/* Metrics Overview Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
               <div className="border border-line bg-panel p-4">
                 <div className="text-[11px] text-text-dim mb-1">TOTAL ACCOUNTS</div>
                 <div className="text-2xl font-bold text-text-primary">{users.length}</div>
@@ -281,6 +341,141 @@ export default function AdminUsersPage() {
                 <div className="text-2xl font-bold text-text-primary">{analystCount}</div>
                 <div className="text-[10px] text-text-dim mt-1">Read & ETL compute roles</div>
               </div>
+              <div
+                className={`border p-4 ${
+                  pendingElevationCount > 0 ? "border-accent-amber bg-accent-amber/5" : "border-line bg-panel"
+                }`}
+              >
+                <div className="text-[11px] text-text-dim mb-1">PENDING ELEVATIONS</div>
+                <div
+                  className={`text-2xl font-bold ${
+                    pendingElevationCount > 0 ? "text-accent-amber animate-pulse" : "text-text-primary"
+                  }`}
+                >
+                  {pendingElevationCount}
+                </div>
+                <div className="text-[10px] text-text-dim mt-1">Requires review</div>
+              </div>
+            </div>
+
+            {/* Pending Elevation Requests Panel */}
+            <div className="mb-8 border border-line bg-panel overflow-hidden">
+              <div className="px-4 py-3 border-b border-line flex items-center justify-between bg-bg-void/40 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      pendingElevationCount > 0 ? "bg-accent-amber animate-ping" : "bg-text-dim"
+                    }`}
+                  />
+                  <span className="text-xs font-bold tracking-wider text-text-primary">
+                    ANALYST ELEVATION REQUESTS
+                  </span>
+                  <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-accent-amber/10 border border-accent-amber/30 text-accent-amber font-mono font-bold">
+                    {pendingElevationCount} PENDING
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center border border-line text-[11px]">
+                    <button
+                      onClick={() => setElevationTab("pending")}
+                      className={`px-2.5 py-1 ${
+                        elevationTab === "pending"
+                          ? "bg-accent-amber text-bg-void font-bold"
+                          : "text-text-dim hover:text-text-primary"
+                      }`}
+                    >
+                      PENDING ONLY
+                    </button>
+                    <button
+                      onClick={() => setElevationTab("all")}
+                      className={`px-2.5 py-1 ${
+                        elevationTab === "all"
+                          ? "bg-accent-amber text-bg-void font-bold"
+                          : "text-text-dim hover:text-text-primary"
+                      }`}
+                    >
+                      ALL HISTORY ({elevationRequests.length})
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {displayedElevationRequests.length === 0 ? (
+                <div className="p-6 text-center text-xs text-text-dim font-sans">
+                  {elevationTab === "pending"
+                    ? "✓ No pending analyst elevation requests requiring review."
+                    : "No elevation request history recorded."}
+                </div>
+              ) : (
+                <div className="divide-y divide-line">
+                  {displayedElevationRequests.map((req) => (
+                    <div
+                      key={req.id}
+                      className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-bg-void/20 hover:bg-bg-void/40 transition-colors"
+                    >
+                      <div className="space-y-1.5 max-w-2xl">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold text-text-primary">
+                            {req.user_name || "Name Not Set"}
+                          </span>
+                          <span className="text-xs text-text-dim font-mono">
+                            &lt;{req.user_email}&gt;
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 bg-panel border border-line text-text-dim rounded">
+                            {req.user_organization || "Independent"}
+                          </span>
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded border ${
+                              req.status === "approved"
+                                ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
+                                : req.status === "rejected"
+                                ? "bg-alert/10 border-alert/30 text-alert"
+                                : "bg-accent-amber/10 border-accent-amber/30 text-accent-amber"
+                            }`}
+                          >
+                            {req.status.toUpperCase()}
+                          </span>
+                        </div>
+
+                        <div className="text-xs text-text-primary italic bg-bg-void/60 border border-line/60 p-2 rounded">
+                          "{req.reason}"
+                        </div>
+
+                        <div className="text-[10px] text-text-dim flex items-center gap-3 font-sans flex-wrap">
+                          <span>Submitted: {new Date(req.created_at).toLocaleString()}</span>
+                          {req.reviewed_by && (
+                            <span>Reviewed by: {req.reviewed_by}</span>
+                          )}
+                          {req.review_notes && (
+                            <span className="italic">Note: "{req.review_notes}"</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {req.status === "pending" && (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => handleApproveElevation(req)}
+                            disabled={actionLoadingId === req.id}
+                            className="px-3 py-1.5 bg-signal-green/10 border border-signal-green text-signal-green hover:bg-signal-green hover:text-bg-void transition-colors text-xs font-bold disabled:opacity-50 flex items-center gap-1"
+                          >
+                            <span>✓</span>
+                            <span>APPROVE ACCESS</span>
+                          </button>
+                          <button
+                            onClick={() => handleRejectElevation(req)}
+                            disabled={actionLoadingId === req.id}
+                            className="px-3 py-1.5 bg-alert/10 border border-alert text-alert hover:bg-alert hover:text-bg-void transition-colors text-xs font-bold disabled:opacity-50 flex items-center gap-1"
+                          >
+                            <span>✕</span>
+                            <span>REJECT</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* User Directory Table */}

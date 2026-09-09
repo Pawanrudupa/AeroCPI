@@ -5,7 +5,16 @@ Implements ARCHITECTURE.md Section 2 (SQLite dev -> PostgreSQL deployment via SQ
 from typing import Generator
 from sqlmodel import SQLModel, create_engine, Session, select
 from backend.app.config import settings
-from backend.app.models import User
+from backend.app.models import (
+    User,
+    ElevationRequest,
+    LoginEvent,
+    RawSnapshot,
+    FareQuote,
+    IndexDaily,
+    IndexRoute,
+    DGCABenchmark,
+)
 from backend.app.security import hash_password
 
 connect_args = {}

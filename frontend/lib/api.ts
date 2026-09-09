@@ -207,6 +207,20 @@ export interface ApiKeyGenerateResponse {
   message: string;
 }
 
+export interface ElevationRequestRecord {
+  id: number;
+  user_id: number;
+  user_email: string;
+  user_name: string | null;
+  user_organization: string | null;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  review_notes: string | null;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Typed endpoint functions                                           */
 /* ------------------------------------------------------------------ */
@@ -363,7 +377,64 @@ export const api = {
     apiFetch<{ status: string; message: string }>("/account/api-key", token, {
       method: "DELETE",
     }),
+
+  /* Analyst Elevation Request Endpoints */
+  submitElevationRequest: (token: string, reason: string) =>
+    apiFetch<{ status: string; message: string; request: ElevationRequestRecord | null }>(
+      "/account/elevation-request",
+      token,
+      {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      }
+    ),
+
+  getElevationRequest: (token: string) =>
+    apiFetch<{ request: ElevationRequestRecord | null }>("/account/elevation-request", token),
+
+  adminListElevationRequests: (token: string, status?: string) => {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+    return apiFetch<ElevationRequestRecord[]>(`/admin/elevation-requests${qs}`, token);
+  },
+
+  adminApproveElevationRequest: (token: string, requestId: number, review_notes?: string) =>
+    apiFetch<{ status: string; message: string; request: ElevationRequestRecord }>(
+      `/admin/elevation-requests/${requestId}/approve`,
+      token,
+      {
+        method: "POST",
+        body: JSON.stringify({ review_notes }),
+      }
+    ),
+
+  adminRejectElevationRequest: (token: string, requestId: number, review_notes?: string) =>
+    apiFetch<{ status: string; message: string; request: ElevationRequestRecord }>(
+      `/admin/elevation-requests/${requestId}/reject`,
+      token,
+      {
+        method: "POST",
+        body: JSON.stringify({ review_notes }),
+      }
+    ),
+
+  /* Self-Service Viewer Registration */
+  register: (payload: { email: string; password: string; name?: string; organization?: string }) =>
+    apiFetch<TokenResponse>("/auth/register", null, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  expires_in_minutes: number;
+  user_email: string;
+  role: string;
+  must_change_password: boolean;
+  name?: string | null;
+  organization?: string | null;
+}
 
 export const getSSEUrl = (token: string) =>
   `${API_BASE}/events/pipeline?token=${encodeURIComponent(token)}`;

@@ -60,6 +60,12 @@ export default function LandingPage() {
                 [ METHODOLOGY ]
               </Link>
               <Link
+                href="/signup"
+                className="px-2.5 py-1 text-signal-green hover:underline transition-colors font-bold"
+              >
+                [ SIGN UP ]
+              </Link>
+              <Link
                 href="/login"
                 className="ml-2 px-3 py-1 bg-accent-amber text-bg-void font-bold hover:bg-accent-amber/90 transition-colors"
               >
@@ -117,6 +123,12 @@ export default function LandingPage() {
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent-amber text-bg-void font-mono font-bold text-sm hover:bg-accent-amber/90 transition-colors relative z-50"
                 >
                   ENTER TERMINAL →
+                </Link>
+                <Link
+                  href="/signup"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 border border-signal-green bg-signal-green/10 text-signal-green font-mono text-sm hover:bg-signal-green hover:text-bg-void transition-colors relative z-50 font-bold"
+                >
+                  GET VIEWER ACCESS →
                 </Link>
                 <Link
                   href="/methodology"

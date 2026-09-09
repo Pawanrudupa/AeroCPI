@@ -246,10 +246,10 @@ export const RadarBackground: React.FC = () => {
 
       // ========== 1. RADAR GRID ==========
 
-      ctx.setLineDash([]); // Ensure continuous by default
-      // Crosshair axes
-      ctx.strokeStyle = "rgba(255, 200, 0, 0.7)";
-      ctx.lineWidth = 2.0;
+      ctx.setLineDash([]); // Continuous clean lines
+      // Crosshair axes (Horizontal & Vertical)
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.16)";
+      ctx.lineWidth = 1.0;
       ctx.beginPath();
       ctx.moveTo(0, cy);
       ctx.lineTo(w, cy);
@@ -259,20 +259,18 @@ export const RadarBackground: React.FC = () => {
 
       // Concentric range rings
       const ringCount = 6;
-      ctx.setLineDash([6, 8]);
       for (let i = 1; i <= ringCount; i++) {
         const r = (maxR / ringCount) * i;
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(255, 200, 0, ${0.5 + (i % 2 === 0 ? 0.2 : 0)})`;
-        ctx.lineWidth = 2.0;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.12 + (i % 2 === 0 ? 0.03 : 0)})`;
+        ctx.lineWidth = 1.0;
         ctx.stroke();
       }
-      ctx.setLineDash([]);
 
-      // Diagonal crosshairs
-      ctx.strokeStyle = "rgba(255, 200, 0, 0.5)";
-      ctx.lineWidth = 2.0;
+      // Diagonal crosshairs (Radial spoke lines)
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.10)";
+      ctx.lineWidth = 1.0;
       ctx.beginPath();
       ctx.moveTo(cx - maxR, cy - maxR);
       ctx.lineTo(cx + maxR, cy + maxR);
@@ -289,9 +287,9 @@ export const RadarBackground: React.FC = () => {
 
         // Trailing gradient wedge
         const gradient = ctx.createConicGradient(sweepAngle - 0.3, cx, cy);
-        gradient.addColorStop(0, "rgba(255, 200, 0, 0)");
-        gradient.addColorStop(0.04, "rgba(255, 200, 0, 0.6)");
-        gradient.addColorStop(0.05, "rgba(255, 200, 0, 0)");
+        gradient.addColorStop(0, "rgba(255, 255, 255, 0)");
+        gradient.addColorStop(0.04, "rgba(255, 255, 255, 0.04)");
+        gradient.addColorStop(0.05, "rgba(255, 255, 255, 0)");
 
         ctx.fillStyle = gradient;
         ctx.beginPath();
@@ -301,8 +299,8 @@ export const RadarBackground: React.FC = () => {
         ctx.fill();
 
         // Sweep line
-        ctx.strokeStyle = "rgba(255, 200, 0, 0.9)";
-        ctx.lineWidth = 3.0;
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+        ctx.lineWidth = 1.0;
         ctx.beginPath();
         ctx.moveTo(cx, cy);
         ctx.lineTo(

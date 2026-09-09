@@ -10,6 +10,7 @@ import {
   type UserProfileRecord,
   type LoginEventRecord,
   type ApiKeyGenerateResponse,
+  type ElevationRequestRecord,
 } from "@/lib/api";
 import { InstitutionalNavbar } from "@/components/InstitutionalNavbar";
 import { DotGridSpotlight } from "@/components/DotGridSpotlight";
@@ -41,18 +42,26 @@ export default function AccountProfilePage() {
   const [apiKeyLoading, setApiKeyLoading] = useState(false);
   const [apiKeyMsg, setApiKeyMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
+  // Elevation Request State
+  const [elevationRequest, setElevationRequest] = useState<ElevationRequestRecord | null>(null);
+  const [elevationReason, setElevationReason] = useState("");
+  const [elevationSubmitting, setElevationSubmitting] = useState(false);
+  const [elevationMsg, setElevationMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
+
   const loadData = useCallback(async () => {
     if (!token) return;
     try {
       setLoading(true);
-      const [profData, historyData] = await Promise.all([
+      const [profData, historyData, elevData] = await Promise.all([
         api.getProfile(token),
         api.getLoginHistory(token).catch(() => []),
+        api.getElevationRequest(token).catch(() => ({ request: null })),
       ]);
       setProfile(profData);
       setNameInput(profData.name || "");
       setOrgInput(profData.organization || "");
       setLoginHistory(historyData);
+      setElevationRequest(elevData?.request || null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to load account details";
       setProfileMsg({ text: msg, type: "error" });
@@ -60,6 +69,31 @@ export default function AccountProfilePage() {
       setLoading(false);
     }
   }, [token]);
+
+  const handleSubmitElevation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    if (elevationReason.trim().length < 10) {
+      setElevationMsg({ text: "Please provide a detailed justification (at least 10 characters).", type: "error" });
+      return;
+    }
+    setElevationSubmitting(true);
+    setElevationMsg(null);
+    try {
+      const res = await api.submitElevationRequest(token, elevationReason.trim());
+      setElevationRequest(res.request);
+      setElevationReason("");
+      setElevationMsg({
+        text: res.message || "Elevation request submitted. Institutional administrators have been notified via email.",
+        type: "success",
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to submit elevation request";
+      setElevationMsg({ text: msg, type: "error" });
+    } finally {
+      setElevationSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -446,6 +480,104 @@ export default function AccountProfilePage() {
                         </button>
                       </div>
                     </form>
+                  </div>
+
+                  {/* Card: Analyst Role Elevation Request */}
+                  <div className="border border-line bg-panel p-5 space-y-4">
+                    <div className="flex items-center justify-between border-b border-line pb-2.5">
+                      <h2 className="text-xs font-bold text-text-primary flex items-center gap-2">
+                        <span className="text-accent-amber">▲</span>
+                        <span>ANALYST ROLE ELEVATION REQUEST</span>
+                      </h2>
+                      {profile?.role === "analyst" || profile?.role === "admin" ? (
+                        <span className="text-[10px] px-2 py-0.5 bg-signal-green/10 border border-signal-green/30 text-signal-green rounded">
+                          ACTIVE: {profile.role.toUpperCase()}
+                        </span>
+                      ) : elevationRequest?.status === "pending" ? (
+                        <span className="text-[10px] px-2 py-0.5 bg-accent-amber/10 border border-accent-amber/30 text-accent-amber rounded animate-pulse">
+                          PENDING ADMIN REVIEW
+                        </span>
+                      ) : elevationRequest?.status === "approved" ? (
+                        <span className="text-[10px] px-2 py-0.5 bg-signal-green/10 border border-signal-green/30 text-signal-green rounded">
+                          APPROVED
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-text-dim">
+                          CURRENT ROLE: {String(profile?.role || "viewer").toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+
+                    {elevationMsg && (
+                      <div
+                        className={`p-2.5 text-xs border ${
+                          elevationMsg.type === "success"
+                            ? "bg-signal-green/10 border-signal-green/40 text-signal-green"
+                            : "bg-alert/10 border-alert/40 text-alert"
+                        }`}
+                      >
+                        {elevationMsg.text}
+                      </div>
+                    )}
+
+                    {profile?.role === "analyst" || profile?.role === "admin" ? (
+                      <div className="p-4 border border-signal-green/20 bg-signal-green/5 text-xs text-text-dim space-y-1 font-sans">
+                        <div className="font-mono text-signal-green font-bold">
+                          FULL ANALYST PRIVILEGES ACTIVE
+                        </div>
+                        <p>
+                          Your account holds institutional <strong className="text-text-primary font-mono">{profile.role.toUpperCase()}</strong> authority. You have unrestricted access to raw multilateral flight quotes, GEKS-Törnqvist series, and pipeline execution.
+                        </p>
+                      </div>
+                    ) : elevationRequest && elevationRequest.status === "pending" ? (
+                      <div className="p-4 border border-accent-amber/30 bg-accent-amber/5 text-xs space-y-2">
+                        <div className="flex items-center justify-between text-accent-amber font-mono font-bold">
+                          <span>REQUEST SUBMITTED &amp; PENDING REVIEW</span>
+                          <span className="text-[10px] font-normal text-text-dim">
+                            {new Date(elevationRequest.created_at).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="text-text-dim font-sans">
+                          An institutional administrator has been notified via email. Your justification is queued for evaluation in the Administrative Console.
+                        </div>
+                        <div className="p-2.5 bg-bg-void border border-line text-[11px] text-text-primary italic">
+                          "{elevationRequest.reason}"
+                        </div>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleSubmitElevation} className="space-y-4">
+                        <p className="text-xs text-text-dim font-sans leading-relaxed">
+                          Request elevation from <strong className="font-mono text-text-primary">VIEWER</strong> to <strong className="font-mono text-accent-amber">ANALYST</strong>. Submitting this form sends an instant notification email to the institutional administrator for verification.
+                        </p>
+
+                        <div>
+                          <label className="block text-[11px] text-text-dim mb-1">
+                            JUSTIFICATION &amp; USE CASE * (MIN 10 CHARS)
+                          </label>
+                          <textarea
+                            required
+                            rows={3}
+                            value={elevationReason}
+                            onChange={(e) => setElevationReason(e.target.value)}
+                            placeholder="State your institutional role, department, and why you require multilateral fare index access (e.g. NSO transport price research)..."
+                            className="w-full bg-bg-void border border-line p-2.5 text-xs text-text-primary focus:border-accent-amber focus:outline-none resize-none"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[10px] text-text-dim font-sans">
+                            Notification sent to institutional admin upon submission.
+                          </span>
+                          <button
+                            type="submit"
+                            disabled={elevationSubmitting || !elevationReason.trim()}
+                            className="px-4 py-2 bg-accent-amber text-bg-void font-bold text-xs hover:bg-accent-amber/90 transition-colors disabled:opacity-50"
+                          >
+                            {elevationSubmitting ? "NOTIFYING ADMIN..." : "REQUEST ANALYST ACCESS →"}
+                          </button>
+                        </div>
+                      </form>
+                    )}
                   </div>
 
                   {/* Card 3: Scoped Login History */}
