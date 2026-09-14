@@ -162,7 +162,7 @@ export interface UserAdminRecord {
   email: string;
   name: string | null;
   organization: string | null;
-  role: "admin" | "analyst";
+  role: "admin" | "analyst" | "viewer";
   is_active: boolean;
   created_at: string;
   last_login_at: string | null;
@@ -182,7 +182,7 @@ export interface UserProfileRecord {
   email: string;
   name: string | null;
   organization: string | null;
-  role: "admin" | "analyst";
+  role: "admin" | "analyst" | "viewer";
   is_active: boolean;
   created_at: string;
   last_login_at: string | null;

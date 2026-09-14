@@ -249,8 +249,48 @@ def test_elevation_and_email():
     finally:
         settings.SMTP_HOST = original_host
 
+    # Step 12: VIEWER Privilege Escalation Guard on Pipeline Trigger Endpoints
+    print("\n--- [12] Testing VIEWER Privilege Escalation Guard on Pipeline Endpoints ---")
+    viewer_token = register_resp.json()["access_token"]
+    v_headers = {"Authorization": f"Bearer {viewer_token}"}
+    
+    pipe_sync_resp = client.post("/pipeline/trigger-sync?limit_sources=true", headers=v_headers)
+    assert pipe_sync_resp.status_code == 403, f"Expected 403, got {pipe_sync_resp.status_code}: {pipe_sync_resp.text}"
+    print(f"[PASS] VIEWER POST /pipeline/trigger-sync rejected with 403: {pipe_sync_resp.json()['detail']}")
+
+    pipe_sse_resp = client.post("/pipeline/trigger-sync-sse?route=DEL-BOM&window=T%2B7", headers=v_headers)
+    assert pipe_sse_resp.status_code == 403, f"Expected 403, got {pipe_sse_resp.status_code}: {pipe_sse_resp.text}"
+    print(f"[PASS] VIEWER POST /pipeline/trigger-sync-sse rejected with 403: {pipe_sse_resp.json()['detail']}")
+
+    pipe_stop_resp = client.post("/pipeline/stop", headers=v_headers)
+    assert pipe_stop_resp.status_code == 403, f"Expected 403, got {pipe_stop_resp.status_code}: {pipe_stop_resp.text}"
+    print(f"[PASS] VIEWER POST /pipeline/stop rejected with 403: {pipe_stop_resp.json()['detail']}")
+
+    # Step 13: VIEWER Privilege Escalation Guard on API Key Endpoints
+    print("\n--- [13] Testing VIEWER Privilege Escalation Guard on API Key Endpoints ---")
+    api_gen_resp = client.post("/account/api-key", headers=v_headers)
+    assert api_gen_resp.status_code == 403, f"Expected 403, got {api_gen_resp.status_code}: {api_gen_resp.text}"
+    print(f"[PASS] VIEWER POST /account/api-key rejected with 403: {api_gen_resp.json()['detail']}")
+
+    api_del_resp = client.delete("/account/api-key", headers=v_headers)
+    assert api_del_resp.status_code == 403, f"Expected 403, got {api_del_resp.status_code}: {api_del_resp.text}"
+    print(f"[PASS] VIEWER DELETE /account/api-key rejected with 403: {api_del_resp.json()['detail']}")
+
+    # Step 14: ANALYST Legitimacy Check
+    print("\n--- [14] Verifying Legitimate ANALYST Can Generate API Key ---")
+    # Step 8 approved researcher_email and elevated it to analyst
+    elevated_login = client.post("/auth/login", json={"email": viewer_email, "password": viewer_pass})
+    assert elevated_login.status_code == 200
+    elevated_token = elevated_login.json()["access_token"]
+    e_headers = {"Authorization": f"Bearer {elevated_token}"}
+    
+    analyst_key_resp = client.post("/account/api-key", headers=e_headers)
+    assert analyst_key_resp.status_code == 200, f"Expected 200, got {analyst_key_resp.status_code}: {analyst_key_resp.text}"
+    assert "aero_live_" in analyst_key_resp.json()["api_key"]
+    print(f"[PASS] Approved ANALYST successfully generated API key ({analyst_key_resp.json()['prefix']})")
+
     print("\n=========================================================")
-    print("ALL ELEVATION & EMAIL NOTIFICATION TESTS PASSED (11/11)!")
+    print("ALL ELEVATION, EMAIL, & PRIVILEGE GUARD TESTS PASSED (14/14)!")
     print("=========================================================")
 
 

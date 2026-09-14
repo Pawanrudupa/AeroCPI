@@ -660,116 +660,137 @@ export default function AccountProfilePage() {
                       <span className="text-[10px] text-text-dim">X-API-Key</span>
                     </div>
 
-                    <p className="text-xs text-text-dim font-sans leading-relaxed">
-                      Personal high-entropy keys allow pipeline automation, cron ingestion, and scripted economic models (R / Python / Stata) to query AeroCPI without interactive login.
-                    </p>
-
-                    {apiKeyMsg && (
-                      <div
-                        className={`p-2.5 text-xs border ${
-                          apiKeyMsg.type === "success"
-                            ? "bg-signal-green/10 border-signal-green/40 text-signal-green"
-                            : "bg-alert/10 border-alert/40 text-alert"
-                        }`}
-                      >
-                        {apiKeyMsg.text}
-                      </div>
-                    )}
-
-                    {/* Active Key Display or Prompt */}
-                    {newlyGeneratedKey ? (
-                      <div className="space-y-2 p-3 border border-signal-green bg-signal-green/10">
-                        <div className="text-[10px] text-signal-green font-bold flex items-center justify-between">
-                          <span>PLAINTEXT KEY (SHOWN ONCE):</span>
-                          <span className="text-[9px] bg-alert/20 text-alert px-1">EPHEMERAL VIEW</span>
+                    {profile?.role === "viewer" ? (
+                      <div className="space-y-4">
+                        <div className="p-3 border border-dashed border-alert/50 bg-alert/5 space-y-2">
+                          <div className="flex items-center gap-1.5 text-alert font-bold text-xs">
+                            <span>🔒</span>
+                            <span>ANALYST ELEVATION REQUIRED</span>
+                          </div>
+                          <p className="text-xs text-text-dim font-sans leading-relaxed">
+                            Personal high-entropy API keys (<code className="text-text-primary">X-API-Key</code>) and automated pipeline execution are restricted to institutional <strong>Analyst</strong> and <strong>Admin</strong> accounts.
+                          </p>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="text"
-                            readOnly
-                            value={newlyGeneratedKey}
-                            className="w-full bg-bg-void border border-line px-2 py-1.5 text-xs font-mono text-signal-green select-all focus:outline-none"
-                          />
-                          <button
-                            onClick={copyApiKey}
-                            className="px-2.5 py-1.5 border border-signal-green bg-signal-green text-bg-void hover:bg-signal-green/80 transition-colors text-[11px] font-bold whitespace-nowrap"
-                          >
-                            {copiedKey ? "COPIED" : "COPY"}
-                          </button>
-                        </div>
-                        <div className="text-[10px] text-text-dim font-sans leading-tight">
-                          This key is now saved hashed at rest via SHA-256. It cannot be recovered if lost.
-                        </div>
-                      </div>
-                    ) : profile?.api_key_prefix ? (
-                      <div className="p-3 border border-line bg-bg-void/60 space-y-2">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-text-dim">ACTIVE KEY:</span>
-                          <span className="text-signal-green font-bold">SHA-256 SECURED</span>
-                        </div>
-                        <div className="font-mono text-sm text-text-primary tracking-wider bg-bg-void p-2 border border-line">
-                          {profile.api_key_prefix}••••••••••••
-                        </div>
-                        <div className="text-[10px] text-text-dim flex justify-between">
-                          <span>Created: {new Date(profile.api_key_created_at!).toLocaleDateString("en-IN")}</span>
-                          <span className="text-signal-green">Status: Active</span>
-                        </div>
+                        <p className="text-[11px] text-text-dim font-sans leading-relaxed">
+                          As a <strong>Viewer</strong>, you have full interactive access to multilateral price indices, coverage matrices, and research methodology. To unlock programmatic API keys, submit an elevation request in the panel on the left.
+                        </p>
                       </div>
                     ) : (
-                      <div className="p-3 border border-dashed border-line text-center text-xs text-text-dim">
-                        No programmatic API key currently active.
-                      </div>
+                      <>
+                        <p className="text-xs text-text-dim font-sans leading-relaxed">
+                          Personal high-entropy keys allow pipeline automation, cron ingestion, and scripted economic models (R / Python / Stata) to query AeroCPI without interactive login.
+                        </p>
+
+                        {apiKeyMsg && (
+                          <div
+                            className={`p-2.5 text-xs border ${
+                              apiKeyMsg.type === "success"
+                                ? "bg-signal-green/10 border-signal-green/40 text-signal-green"
+                                : "bg-alert/10 border-alert/40 text-alert"
+                            }`}
+                          >
+                            {apiKeyMsg.text}
+                          </div>
+                        )}
+
+                        {/* Active Key Display or Prompt */}
+                        {newlyGeneratedKey ? (
+                          <div className="space-y-2 p-3 border border-signal-green bg-signal-green/10">
+                            <div className="text-[10px] text-signal-green font-bold flex items-center justify-between">
+                              <span>PLAINTEXT KEY (SHOWN ONCE):</span>
+                              <span className="text-[9px] bg-alert/20 text-alert px-1">EPHEMERAL VIEW</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                readOnly
+                                value={newlyGeneratedKey}
+                                className="w-full bg-bg-void border border-line px-2 py-1.5 text-xs font-mono text-signal-green select-all focus:outline-none"
+                              />
+                              <button
+                                onClick={copyApiKey}
+                                className="px-2.5 py-1.5 border border-signal-green bg-signal-green text-bg-void hover:bg-signal-green/80 transition-colors text-[11px] font-bold whitespace-nowrap"
+                              >
+                                {copiedKey ? "COPIED" : "COPY"}
+                              </button>
+                            </div>
+                            <div className="text-[10px] text-text-dim font-sans leading-tight">
+                              This key is now saved hashed at rest via SHA-256. It cannot be recovered if lost.
+                            </div>
+                          </div>
+                        ) : profile?.api_key_prefix ? (
+                          <div className="p-3 border border-line bg-bg-void/60 space-y-2">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-text-dim">ACTIVE KEY:</span>
+                              <span className="text-signal-green font-bold">SHA-256 SECURED</span>
+                            </div>
+                            <div className="font-mono text-sm text-text-primary tracking-wider bg-bg-void p-2 border border-line">
+                              {profile.api_key_prefix}••••••••••••
+                            </div>
+                            <div className="text-[10px] text-text-dim flex justify-between">
+                              <span>Created: {new Date(profile.api_key_created_at!).toLocaleDateString("en-IN")}</span>
+                              <span className="text-signal-green">Status: Active</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-3 border border-dashed border-line text-center text-xs text-text-dim">
+                            No programmatic API key currently active.
+                          </div>
+                        )}
+
+                        {/* Key Actions */}
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            onClick={handleGenerateApiKey}
+                            disabled={apiKeyLoading}
+                            className="flex-1 py-1.5 border border-signal-green/80 bg-signal-green/10 text-signal-green hover:bg-signal-green hover:text-bg-void transition-colors text-xs font-bold disabled:opacity-50"
+                          >
+                            {profile?.api_key_prefix ? "REGENERATE KEY" : "CREATE API KEY"}
+                          </button>
+
+                          {profile?.api_key_prefix && (
+                            <button
+                              onClick={handleRevokeApiKey}
+                              disabled={apiKeyLoading}
+                              className="py-1.5 px-3 border border-alert/60 text-alert hover:bg-alert hover:text-bg-void transition-colors text-xs font-bold disabled:opacity-50"
+                            >
+                              REVOKE
+                            </button>
+                          )}
+                        </div>
+                      </>
                     )}
-
-                    {/* Key Actions */}
-                    <div className="flex items-center gap-2 pt-1">
-                      <button
-                        onClick={handleGenerateApiKey}
-                        disabled={apiKeyLoading}
-                        className="flex-1 py-1.5 border border-signal-green/80 bg-signal-green/10 text-signal-green hover:bg-signal-green hover:text-bg-void transition-colors text-xs font-bold disabled:opacity-50"
-                      >
-                        {profile?.api_key_prefix ? "REGENERATE KEY" : "CREATE API KEY"}
-                      </button>
-
-                      {profile?.api_key_prefix && (
-                        <button
-                          onClick={handleRevokeApiKey}
-                          disabled={apiKeyLoading}
-                          className="py-1.5 px-3 border border-alert/60 text-alert hover:bg-alert hover:text-bg-void transition-colors text-xs font-bold disabled:opacity-50"
-                        >
-                          REVOKE
-                        </button>
-                      )}
-                    </div>
                   </div>
 
-                  {/* Programmatic Usage Snippet */}
-                  <div className="border border-line bg-panel p-5 space-y-3 font-mono text-xs">
-                    <div className="text-xs font-bold text-accent-amber border-b border-line pb-2">
-                      DEVELOPER & CLI INTEGRATION
-                    </div>
-                    <p className="text-[11px] text-text-dim font-sans leading-relaxed">
-                      Supply the API key via the <code className="text-text-primary">X-API-Key</code> request header:
-                    </p>
+                  {/* Programmatic Usage Snippet (Analyst & Admin only) */}
+                  {profile?.role !== "viewer" && (
+                    <div className="border border-line bg-panel p-5 space-y-3 font-mono text-xs">
+                      <div className="text-xs font-bold text-accent-amber border-b border-line pb-2">
+                        DEVELOPER & CLI INTEGRATION
+                      </div>
+                      <p className="text-[11px] text-text-dim font-sans leading-relaxed">
+                        Supply the API key via the <code className="text-text-primary">X-API-Key</code> request header:
+                      </p>
 
-                    <div className="p-3 bg-bg-void border border-line text-[11px] overflow-x-auto space-y-2 text-text-dim">
-                      <div className="text-text-dim"># 1. Daily Multilateral Index</div>
-                      <div className="text-signal-green select-all">
-                        curl -H &quot;X-API-Key: {profile?.api_key_prefix ? `${profile.api_key_prefix}...` : "aero_live_TOKEN"}&quot; \<br />
-                        &nbsp;&nbsp;{API_BASE}/index/daily
+                      <div className="p-3 bg-bg-void border border-line text-[11px] overflow-x-auto space-y-2 text-text-dim">
+                        <div className="text-text-dim"># 1. Daily Multilateral Index</div>
+                        <div className="text-signal-green select-all">
+                          curl -H &quot;X-API-Key: {profile?.api_key_prefix ? `${profile.api_key_prefix}...` : "aero_live_TOKEN"}&quot; \<br />
+                          &nbsp;&nbsp;{API_BASE}/index/daily
+                        </div>
+
+                        <div className="text-text-dim pt-2"># 2. Raw Verified Fare Quotes</div>
+                        <div className="text-signal-green select-all">
+                          curl -H &quot;X-API-Key: {profile?.api_key_prefix ? `${profile.api_key_prefix}...` : "aero_live_TOKEN"}&quot; \<br />
+                          &nbsp;&nbsp;&quot;{API_BASE}/fares/raw?route=DEL-BOM&amp;limit=10&quot;
+                        </div>
                       </div>
 
-                      <div className="text-text-dim pt-2"># 2. Raw Verified Fare Quotes</div>
-                      <div className="text-signal-green select-all">
-                        curl -H &quot;X-API-Key: {profile?.api_key_prefix ? `${profile.api_key_prefix}...` : "aero_live_TOKEN"}&quot; \<br />
-                        &nbsp;&nbsp;&quot;{API_BASE}/fares/raw?route=DEL-BOM&amp;limit=10&quot;
+                      <div className="text-[10px] text-text-dim font-sans">
+                        All responses return standard JSON conforming to the OpenAPI / Swagger documentation schema at <code className="text-accent-amber">/docs</code>.
                       </div>
                     </div>
-
-                    <div className="text-[10px] text-text-dim font-sans">
-                      All responses return standard JSON conforming to the OpenAPI / Swagger documentation schema at <code className="text-accent-amber">/docs</code>.
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             )}

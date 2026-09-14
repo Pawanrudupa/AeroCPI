@@ -123,10 +123,10 @@ def get_current_user(
     if x_api_key:
         api_hash = hash_api_key(x_api_key)
         user = session.exec(select(User).where(User.api_key_hash == api_hash)).first()
-        if not user or not user.is_active:
+        if not user or not user.is_active or user.role not in ("analyst", "admin"):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or inactive API key",
+                detail="Invalid, inactive, or unauthorized API key",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         return user
@@ -162,6 +162,16 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Institutional Administrator privileges required"
+        )
+    return current_user
+
+
+def require_analyst_or_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Require ANALYST or ADMIN role for operational pipeline and API key management."""
+    if current_user.role not in ("analyst", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Analyst or Administrator privileges required"
         )
     return current_user
 
@@ -791,7 +801,7 @@ def get_dgca_backtest(
 @app.post("/pipeline/trigger-sync", tags=["Pipeline Operations"])
 def trigger_pipeline_sync(
     limit_sources: bool = Query(True, description="Limit to 2 fast sources for instant demonstration"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_analyst_or_admin),
     session: Session = Depends(get_session)
 ):
     """
@@ -848,7 +858,7 @@ async def pipeline_events(
 def trigger_sync_sse(
     route: Optional[str] = Query(None, description="Optional route to scope execution, e.g. DEL-BOM"),
     window: Optional[str] = Query(None, description="Optional window to scope execution, e.g. T+7, T+15, T+30"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_analyst_or_admin),
     session: Session = Depends(get_session)
 ):
     """
@@ -923,7 +933,7 @@ def trigger_sync_sse(
 
 @app.post("/pipeline/stop", tags=["Pipeline Operations"])
 def stop_pipeline(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_analyst_or_admin)
 ):
     """
     Cancel an in-progress pipeline execution cleanly.
@@ -1293,7 +1303,7 @@ def get_user_login_history(
 
 @app.post("/account/api-key", tags=["Account"])
 def generate_user_api_key(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_analyst_or_admin),
     session: Session = Depends(get_session)
 ):
     """
@@ -1319,7 +1329,7 @@ def generate_user_api_key(
 
 @app.delete("/account/api-key", tags=["Account"])
 def revoke_user_api_key(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_analyst_or_admin),
     session: Session = Depends(get_session)
 ):
     """Revoke existing API key immediately disabling programmatic access."""

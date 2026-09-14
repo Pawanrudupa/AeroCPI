@@ -6,11 +6,16 @@ import { useDashboard } from "@/lib/dashboard-context";
 import { api } from "@/lib/api";
 
 export const HeaderActions: React.FC = () => {
-  const { token } = useAuth();
+  const { token, role } = useAuth();
   const { isPipelineRunning, addPipelineEvent } = useDashboard();
   const [isTriggering, setIsTriggering] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [selectedScope, setSelectedScope] = useState<string>("DEL-BOM:T+7");
+
+  // Only institutional ANALYST and ADMIN roles can trigger or stop pipelines
+  if (role !== "analyst" && role !== "admin") {
+    return null;
+  }
 
   const isDev =
     process.env.NODE_ENV !== "production" ||

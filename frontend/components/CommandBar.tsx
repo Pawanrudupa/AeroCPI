@@ -11,7 +11,7 @@ export function CommandBar() {
   const [response, setResponse] = useState<{ msg: string; type: "error" | "success" | "info" } | null>(null);
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const { token } = useAuth();
+  const { token, role } = useAuth();
   const { isPipelineRunning, setSurgeFilter, addPipelineEvent } = useDashboard();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -50,23 +50,25 @@ export function CommandBar() {
     } else if (cmd === "dashboard") {
       router.push("/dashboard");
       setResponse({ msg: "Navigating to Dashboard...", type: "success" });
-    } else if (cmd === "surge" && parts[1]?.toLowerCase() === "test") {
-      if (!isDev) {
-        setResponse({ msg: "Dev commands are disabled in production build", type: "error" });
-      } else {
-        const testRoute = (parts[2] || "DEL-BOM").toUpperCase();
-        const syntheticPct = "28.5";
+    } else if (cmd === "account") {
+      router.push("/account");
+      setResponse({ msg: "Navigating to Account...", type: "success" });
+    } else if (cmd === "methodology") {
+      router.push("/methodology");
+      setResponse({ msg: "Navigating to Methodology...", type: "success" });
+    } else if (cmd === "surge" && parts[1]?.toUpperCase() === "DEV") {
+      if (isDev) {
         addPipelineEvent({
           event_type: "surge_detected",
-          message: `▲ SURGE :: ${testRoute} — ${syntheticPct}% ABOVE BASELINE [DEV TEST]`,
-          route: testRoute,
-          source: "dev-mock",
+          message: "▲ SURGE :: DEL-BOM — 28.5% ABOVE BASELINE [DEV TEST]",
+          route: "DEL-BOM",
+          source: "dev-test",
           window: "T+7",
-          data: { current: 7800, baseline: 6070, pct_above: syntheticPct },
+          data: { current: 7800, baseline: 6070, pct_above: "28.5" },
           timestamp: new Date().toISOString(),
         });
         setResponse({
-          msg: `[DEV] Fired synthetic surge_detected event for ${testRoute}`,
+          msg: "Dev surge event triggered [DEL-BOM T+7 +28.5%]",
           type: "success",
         });
       }
@@ -79,6 +81,8 @@ export function CommandBar() {
     } else if (cmd === "run") {
       if (!token) {
         setResponse({ msg: "Authentication required to trigger pipeline", type: "error" });
+      } else if (role !== "analyst" && role !== "admin") {
+        setResponse({ msg: "Analyst or Administrator privileges required to trigger pipeline", type: "error" });
       } else if (isPipelineRunning) {
         setResponse({ msg: "Pipeline is already running. Use 'stop' to cancel.", type: "error" });
       } else {
@@ -101,6 +105,8 @@ export function CommandBar() {
     } else if (cmd === "stop") {
       if (!token) {
         setResponse({ msg: "Authentication required", type: "error" });
+      } else if (role !== "analyst" && role !== "admin") {
+        setResponse({ msg: "Analyst or Administrator privileges required to stop pipeline", type: "error" });
       } else if (!isPipelineRunning) {
         setResponse({ msg: "No pipeline is currently running", type: "info" });
       } else {
