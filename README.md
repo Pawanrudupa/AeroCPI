@@ -15,9 +15,10 @@
 - **Multilateral GEKS-Törnqvist Index**:
   - Implements the Eurostat / ILO recommended multilateral GEKS-Törnqvist algorithm to avoid chain drift and preserve transitivity ($P(r, s) \times P(s, t) = P(r, t)$).
   - Weighted by official DGCA domestic passenger traffic shares (`PSD`).
-- **DGCA Benchmark Ingestion & Backtest**:
-  - Strict provenance validation (`source_document`, `publication_date`, `source_url`) ensures verifiable real-world baseline comparisons.
-  - Tracking metrics: Pearson correlation ($r \approx 0.94$) and Root Mean Square Tracking Error.
+- **MoSPI CPI Benchmark & Verification Engine**:
+  - Benchmarks against official Ministry of Statistics and Programme Implementation (MoSPI) Consumer Price Index (CPI) Transport sub-index (Division 07.3: Passenger transport services, Base 2024=100).
+  - Strict provenance validation (`source_document`, `publication_date`, `source_url`).
+  - Tracking metrics: Pearson correlation and Root Mean Square Tracking Error (RMS-TE) active upon published release overlap; status displayed honestly as `PENDING` until multi-month calendar overlap matures.
 - **Terminal-HUD Frontend**:
   - Styled per the `DESIGN.md` Mood 1 terminal amber/green design system (`--bg-void: #0A0A07`, `--accent-amber: #C9A227`, `--signal-green: #7FB86B`).
   - Monospace typography strictly reserved for live data.

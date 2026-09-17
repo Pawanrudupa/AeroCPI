@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
-import { api, API_BASE, type FareQuoteRecord } from "@/lib/api";
+import { api, API_BASE, type FareQuoteRecord, type FareClassBreakdownResponse } from "@/lib/api";
 import { MaterialityGapSection } from "@/components/MaterialityGapSection";
 
 const CORE_ROUTES = ["DEL-BOM", "DEL-BLR", "BOM-BLR", "DEL-CCU", "BLR-HYD", "MAA-DEL"];
@@ -23,9 +23,12 @@ export default function ReportsPage() {
   const [quotes, setQuotes] = useState<FareQuoteRecord[]>([]);
   const [coverageData, setCoverageData] = useState<Record<
     string,
-    Record<string, { total: number; live: number; seeded: number }>
+    Record<string, { total: number; live: number; seeded: number; sold_out?: number; unavailable?: number }>
   > | null>(null);
   const [totalDbQuotes, setTotalDbQuotes] = useState<number>(0);
+  const [totalSoldOut, setTotalSoldOut] = useState<number>(0);
+  const [totalUnavailable, setTotalUnavailable] = useState<number>(0);
+  const [fareClassData, setFareClassData] = useState<FareClassBreakdownResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -42,13 +45,17 @@ export default function ReportsPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const [faresRes, matrixRes] = await Promise.all([
+        const [faresRes, matrixRes, classRes] = await Promise.all([
           api.rawFares(token!, { limit: 5000 }),
           api.coverageMatrix(token!),
+          api.fareClassBreakdown(token!),
         ]);
         setQuotes(faresRes.quotes);
         setCoverageData(matrixRes.matrix);
         setTotalDbQuotes(matrixRes.total_quotes_in_db);
+        setTotalSoldOut(matrixRes.total_sold_out || 0);
+        setTotalUnavailable(matrixRes.total_unavailable || 0);
+        setFareClassData(classRes);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load telemetry quotes.");
       } finally {
@@ -188,7 +195,7 @@ export default function ReportsPage() {
 
         const sourceData: Record<
           string,
-          { total: number; live: number; seeded: number }
+          { total: number; live: number; seeded: number; sold_out?: number; unavailable?: number }
         > = {};
 
         for (const s of ALL_SOURCES) {
@@ -199,6 +206,8 @@ export default function ReportsPage() {
             total: matched.length,
             live: matched.filter((m) => m.source_type === "live").length,
             seeded: matched.filter((m) => m.source_type === "seeded").length,
+            sold_out: matched.filter((m) => m.observation_status === "sold_out").length,
+            unavailable: matched.filter((m) => m.observation_status === "unavailable").length,
           };
         }
 
@@ -217,12 +226,14 @@ export default function ReportsPage() {
       "carrier",
       "flight_number",
       "window",
+      "fare_class",
       "base_fare",
       "taxes",
       "udf",
       "convenience_fee",
       "total_fare",
       "currency",
+      "observation_status",
       "source",
       "source_type",
       "scraped_at",
@@ -237,12 +248,14 @@ export default function ReportsPage() {
         `"${q.carrier || ""}"`,
         `"${q.flight_number || ""}"`,
         q.window,
+        `"${q.fare_class || "economy"}"`,
         q.base_fare ?? "",
         q.taxes ?? "",
         q.udf ?? "",
         q.convenience_fee ?? "",
         q.total_fare,
         q.currency || "INR",
+        `"${q.observation_status || "available"}"`,
         q.source,
         q.source_type,
         `"${q.scraped_at || ""}"`,
@@ -715,18 +728,38 @@ export default function ReportsPage() {
                         {ALL_SOURCES.map((s) => {
                           const data = item.sourceData[s.key];
                           const hasData = data && data.total > 0;
+                          const hasSoldOut = data && data.sold_out && data.sold_out > 0;
+                          const hasUnavail = data && data.unavailable && data.unavailable > 0;
                           return (
                             <td key={s.key} className="py-2 px-3 text-center text-[11px]">
                               {hasData ? (
-                                <span
-                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-xs font-bold ${
-                                    data.live > 0
-                                      ? "bg-signal-green/10 text-signal-green border border-signal-green/30"
-                                      : "bg-accent-amber/10 text-accent-amber border border-accent-amber/30"
-                                  }`}
-                                >
-                                  {data.total} {data.live > 0 ? "LIVE" : "SEEDED"}
-                                </span>
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-xs font-bold ${
+                                      data.live > 0
+                                        ? "bg-signal-green/10 text-signal-green border border-signal-green/30"
+                                        : "bg-accent-amber/10 text-accent-amber border border-accent-amber/30"
+                                    }`}
+                                  >
+                                    {data.total} {data.live > 0 ? "LIVE" : "SEEDED"}
+                                  </span>
+                                  {hasSoldOut && (
+                                    <span
+                                      className="text-[9px] font-mono font-bold text-alert px-1 rounded-xs bg-alert/10 border border-alert/30"
+                                      title={`${data.sold_out} flights marked sold out`}
+                                    >
+                                      {data.sold_out} SOLD-OUT
+                                    </span>
+                                  )}
+                                  {hasUnavail && (
+                                    <span
+                                      className="text-[9px] font-mono font-bold text-[#60A5FA] px-1 rounded-xs bg-[#3B82F6]/10 border border-[#3B82F6]/30"
+                                      title={`${data.unavailable} flights/routes unavailable`}
+                                    >
+                                      {data.unavailable} UNAVAIL
+                                    </span>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="text-alert/60 font-mono text-[10px]">
                                   [GAP] 0
@@ -741,17 +774,118 @@ export default function ReportsPage() {
                 </tbody>
               </table>
             </div>
-            <div className="text-[11px] text-text-dim flex justify-between px-1">
-              <span>* Any cell labeled [GAP] highlights an uncollected source/route/window coordinate.</span>
-              <span className="text-text-dim">TOTAL AUDITED COORDINATES: 108</span>
+            <div className="text-[11px] text-text-dim flex flex-wrap justify-between px-1 gap-2">
+              <span>* [GAP] indicates uncollected coordinates. Sold-out flights are tracked explicitly and excluded from index price averaging.</span>
+              <div className="flex items-center gap-3 font-mono text-[10px]">
+                <span className="text-alert font-bold">SOLD OUT: {totalSoldOut}</span>
+                <span className="text-[#60A5FA] font-bold">UNAVAILABLE: {totalUnavailable}</span>
+                <span className="text-text-dim">TOTAL COORDINATES: 108</span>
+              </div>
             </div>
           </div>
 
           {/* ============================================================ */}
-          {/* SECTION 5: MATERIALITY GAP ANALYSIS                          */}
+          {/* SECTION 5: FARE-CLASS BREAKDOWN                             */}
+          {/* ============================================================ */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between border-b border-line pb-2">
+              <span className="text-xs text-accent-amber font-bold">
+                [ 5. FARE-CLASS BREAKDOWN & TARIFF DISPERSION ]
+              </span>
+              <span className="text-[11px] text-text-dim">
+                AVERAGE FARE BY CABIN CLASS PER TRUNK ROUTE (EXCLUDES SOLD-OUT)
+              </span>
+            </div>
+
+            {/* Summary Cards */}
+            {fareClassData && fareClassData.class_summary && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono">
+                {Object.entries(fareClassData.class_summary).map(([cls, summary]) => (
+                  <div key={cls} className="bg-panel border border-line p-3 rounded-sm flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-text-dim uppercase block">
+                        CABIN CLASS: {cls}
+                      </span>
+                      <span className="text-base font-bold text-accent-amber">
+                        ₹{summary.avg_fare.toLocaleString()}
+                      </span>
+                      <span className="text-[10px] text-text-dim block">AVERAGE BASKET FARE</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-text-dim block">QUOTES</span>
+                      <span className="text-sm font-bold text-text-primary">
+                        {summary.count.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Route x Class Table */}
+            <div className="bg-panel border border-line rounded-sm overflow-x-auto">
+              <table className="w-full text-xs border-collapse font-mono">
+                <thead>
+                  <tr className="border-b border-line text-text-dim text-left">
+                    <th className="py-2.5 px-4">SECTOR</th>
+                    <th className="py-2.5 px-3">FARE CLASS</th>
+                    <th className="py-2.5 px-3 text-right">AVG FARE</th>
+                    <th className="py-2.5 px-3 text-right">MIN FARE</th>
+                    <th className="py-2.5 px-3 text-right">MAX FARE</th>
+                    <th className="py-2.5 px-3 text-right">SAMPLE SIZE</th>
+                    <th className="py-2.5 px-4 text-right">PROVENANCE (LIVE / SEEDED)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {fareClassData && fareClassData.breakdown && fareClassData.breakdown.length > 0 ? (
+                    fareClassData.breakdown.map((row, idx) => (
+                      <tr
+                        key={`${row.route}-${row.fare_class}-${idx}`}
+                        className="border-b border-line/40 hover:bg-white/[0.02] transition-colors"
+                      >
+                        <td className="py-2.5 px-4 font-bold text-text-primary">{row.route}</td>
+                        <td className="py-2.5 px-3 uppercase text-accent-amber font-semibold">
+                          {row.fare_class}
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-text-primary font-bold">
+                          ₹{row.avg_fare.toLocaleString()}
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-signal-green font-semibold">
+                          ₹{row.min_fare.toLocaleString()}
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-alert font-semibold">
+                          ₹{row.max_fare.toLocaleString()}
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-text-dim">
+                          {row.quote_count} quotes
+                        </td>
+                        <td className="py-2.5 px-4 text-right">
+                          <span className="text-signal-green font-bold mr-2">{row.live_count} live</span>
+                          <span className="text-accent-amber font-bold">{row.seeded_count} seeded</span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="py-6 text-center text-text-dim">
+                        No fare class records available.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="text-[11px] text-text-dim flex justify-between px-1">
+              <span>* Fares default to Economy where source does not distinguish. SerpAPI extracts cabin class from Google Flights.</span>
+              <span className="text-signal-green">EXCLUDES CANCELLATIONS &amp; SOLD-OUT</span>
+            </div>
+          </div>
+
+          {/* ============================================================ */}
+          {/* SECTION 6: MATERIALITY GAP ANALYSIS                          */}
           {/* ============================================================ */}
           <div className="pt-2 border-t border-line/60">
-            <MaterialityGapSection title="[ 5. MATERIALITY GAP ANALYSIS :: MANUAL SAMPLING DISTORTION ]" />
+            <MaterialityGapSection title="[ 6. MATERIALITY GAP ANALYSIS :: MANUAL SAMPLING DISTORTION ]" />
           </div>
         </>
       )}

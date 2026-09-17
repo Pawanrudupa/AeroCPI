@@ -643,6 +643,156 @@ def get_route_index(
     }
 
 
+@app.get("/index/weekly", tags=["Price Index"])
+def get_weekly_index(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Aggregate daily GEKS-Törnqvist index into ISO weekly series via geometric mean.
+    Computed on-the-fly from persisted daily index data (no separate storage).
+    """
+    from backend.app.index.geks import aggregate_to_weekly
+
+    daily_records = session.exec(select(IndexDaily).order_by(IndexDaily.date)).all()
+    if not daily_records:
+        return {"status": "success", "frequency": "weekly", "count": 0, "data": []}
+
+    daily_map = {r.date: r.index_value for r in daily_records}
+    weekly_map = aggregate_to_weekly(daily_map)
+
+    data = [{"period": k, "index_value": v} for k, v in weekly_map.items()]
+    return {
+        "status": "success",
+        "frequency": "weekly",
+        "method": "GEKS-Törnqvist (geometric mean of daily)",
+        "count": len(data),
+        "data": data
+    }
+
+
+@app.get("/index/monthly", tags=["Price Index"])
+def get_monthly_index(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Aggregate daily GEKS-Törnqvist index into monthly series via geometric mean.
+    Computed on-the-fly from persisted daily index data (no separate storage).
+    """
+    from backend.app.index.geks import aggregate_to_monthly
+
+    daily_records = session.exec(select(IndexDaily).order_by(IndexDaily.date)).all()
+    if not daily_records:
+        return {"status": "success", "frequency": "monthly", "count": 0, "data": []}
+
+    daily_map = {r.date: r.index_value for r in daily_records}
+    monthly_map = aggregate_to_monthly(daily_map)
+
+    # Also fetch MoSPI benchmarks for overlay
+    from backend.app.models import MospiBenchmark
+    mospi_records = session.exec(select(MospiBenchmark)).all()
+    mospi_map = {r.month: r.cpi_index for r in mospi_records}
+
+    data = []
+    for period, idx_val in monthly_map.items():
+        data.append({
+            "period": period,
+            "index_value": idx_val,
+            "mospi_cpi": mospi_map.get(period)
+        })
+
+    return {
+        "status": "success",
+        "frequency": "monthly",
+        "method": "GEKS-Törnqvist (geometric mean of daily)",
+        "count": len(data),
+        "data": data
+    }
+
+
+@app.get("/reports/fare-class-breakdown", tags=["Reports"])
+def get_fare_class_breakdown(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Surface fare-class distribution across the basket.
+    Returns average fare by class per route, with live/seeded provenance counts.
+    """
+    from sqlalchemy import func
+
+    # Per-route, per-class breakdown
+    stmt = select(
+        FareQuote.route,
+        FareQuote.fare_class,
+        func.avg(FareQuote.total_fare).label("avg_fare"),
+        func.min(FareQuote.total_fare).label("min_fare"),
+        func.max(FareQuote.total_fare).label("max_fare"),
+        func.count(FareQuote.id).label("quote_count"),
+    ).where(
+        FareQuote.observation_status == "available"
+    ).group_by(
+        FareQuote.route, FareQuote.fare_class
+    ).order_by(FareQuote.route, FareQuote.fare_class)
+
+    rows = session.exec(stmt).all()
+
+    # Build provenance counts per (route, fare_class) via separate query
+    prov_stmt = select(
+        FareQuote.route,
+        FareQuote.fare_class,
+        FareQuote.source_type,
+        func.count(FareQuote.id).label("cnt"),
+    ).where(
+        FareQuote.observation_status == "available"
+    ).group_by(FareQuote.route, FareQuote.fare_class, FareQuote.source_type)
+    prov_rows = session.exec(prov_stmt).all()
+    prov_map: Dict[str, Dict[str, int]] = {}
+    for r, fc, st, cnt in prov_rows:
+        key = f"{r}|{fc}"
+        prov_map.setdefault(key, {"live": 0, "seeded": 0})
+        if st in ("live", "seeded"):
+            prov_map[key][st] += int(cnt)
+
+    breakdown = []
+    for route_val, fare_class, avg_f, min_f, max_f, count in rows:
+        key = f"{route_val}|{fare_class}"
+        prov = prov_map.get(key, {"live": 0, "seeded": 0})
+        breakdown.append({
+            "route": route_val,
+            "fare_class": fare_class,
+            "avg_fare": round(float(avg_f), 2),
+            "min_fare": round(float(min_f), 2),
+            "max_fare": round(float(max_f), 2),
+            "quote_count": int(count),
+            "live_count": prov["live"],
+            "seeded_count": prov["seeded"],
+        })
+
+    # Aggregate class summary
+    class_stmt = select(
+        FareQuote.fare_class,
+        func.avg(FareQuote.total_fare).label("avg_fare"),
+        func.count(FareQuote.id).label("count"),
+    ).where(
+        FareQuote.observation_status == "available"
+    ).group_by(FareQuote.fare_class)
+
+    class_rows = session.exec(class_stmt).all()
+    class_summary = {}
+    for fc, avg_f, cnt in class_rows:
+        class_summary[fc] = {
+            "avg_fare": round(float(avg_f), 2),
+            "count": int(cnt),
+        }
+
+    return {
+        "breakdown": breakdown,
+        "class_summary": class_summary
+    }
+
+
 @app.get("/fares/raw", tags=["Fares Data"])
 def get_raw_fares(
     route: Optional[str] = Query(None, description="e.g. DEL-BOM"),
@@ -690,12 +840,14 @@ def get_coverage_matrix(
         FareQuote.window,
         func.lower(FareQuote.source).label("source"),
         FareQuote.source_type,
+        FareQuote.observation_status,
         func.count(FareQuote.id).label("count")
     ).group_by(
         FareQuote.route,
         FareQuote.window,
         func.lower(FareQuote.source),
-        FareQuote.source_type
+        FareQuote.source_type,
+        FareQuote.observation_status
     )
     rows = session.exec(stmt).all()
 
@@ -708,10 +860,10 @@ def get_coverage_matrix(
         for w in windows:
             key = f"{r} {w}"
             matrix[key] = {
-                s: {"total": 0, "live": 0, "seeded": 0} for s in sources
+                s: {"total": 0, "live": 0, "seeded": 0, "sold_out": 0, "unavailable": 0} for s in sources
             }
 
-    for route_val, win_val, src_val, src_type, cnt in rows:
+    for route_val, win_val, src_val, src_type, obs_status, cnt in rows:
         key = f"{route_val} {win_val}"
         if key in matrix and src_val in matrix[key]:
             matrix[key][src_val]["total"] += cnt
@@ -719,11 +871,24 @@ def get_coverage_matrix(
                 matrix[key][src_val]["live"] += cnt
             elif src_type == "seeded":
                 matrix[key][src_val]["seeded"] += cnt
+            
+            if obs_status == "sold_out":
+                matrix[key][src_val]["sold_out"] += cnt
+            elif obs_status == "unavailable":
+                matrix[key][src_val]["unavailable"] += cnt
 
     total_db_quotes = session.exec(select(func.count(FareQuote.id))).one()
+    total_sold_out = session.exec(
+        select(func.count(FareQuote.id)).where(FareQuote.observation_status == "sold_out")
+    ).one()
+    total_unavailable = session.exec(
+        select(func.count(FareQuote.id)).where(FareQuote.observation_status == "unavailable")
+    ).one()
 
     return {
         "total_quotes_in_db": total_db_quotes,
+        "total_sold_out": total_sold_out,
+        "total_unavailable": total_unavailable,
         "matrix": matrix
     }
 

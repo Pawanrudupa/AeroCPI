@@ -128,6 +128,9 @@ class FareQuote(SQLModel, table=True):
     total_fare: float = Field(index=True, nullable=False)
     currency: str = Field(default="INR")
 
+    # Observation status for cancellation / sold-out tracking
+    observation_status: str = Field(default="available", index=True)  # 'available' | 'sold_out' | 'unavailable'
+
     # Traceability & Source Origin (User requirement: live vs seeded)
     source: str = Field(index=True, nullable=False)  # 'indigo', 'akasa', 'spicejet', 'easemytrip', 'cleartrip', 'makemytrip'
     source_type: str = Field(default="live", index=True, nullable=False)  # 'live' | 'seeded'

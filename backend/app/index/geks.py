@@ -150,9 +150,11 @@ def calculate_and_save_daily_indices(
     Extract all quotes from DB, calculate multilateral GEKS-Törnqvist indices,
     and persist results to index_daily and index_route tables.
     """
-    quotes = session.exec(select(FareQuote)).all()
+    quotes = session.exec(
+        select(FareQuote).where(FareQuote.observation_status == "available")
+    ).all()
     if not quotes:
-        logger.warning("No fare quotes found in DB to compute index.")
+        logger.warning("No available fare quotes found in DB to compute index.")
         return []
 
     # Build DataFrame

@@ -29,6 +29,17 @@ export default function DashboardPage() {
     change: string;
     count: number;
   }>({ latest: null, change: "—", count: 0 });
+  const [backtestSummary, setBacktestSummary] = useState<{
+    correlation: number | null;
+    trackingError: number | null;
+    status: string;
+    message: string;
+  }>({
+    correlation: null,
+    trackingError: null,
+    status: "pending",
+    message: "Awaiting MoSPI calendar overlap",
+  });
 
   /* Load data from backend on mount */
   useEffect(() => {
@@ -82,6 +93,21 @@ export default function DashboardPage() {
       } catch {
         /* leave defaults */
       }
+
+      try {
+        /* Fetch backtest metrics */
+        const btRes = await api.backtest(t);
+        if (btRes) {
+          setBacktestSummary({
+            correlation: btRes.correlation ?? null,
+            trackingError: btRes.tracking_error ?? null,
+            status: btRes.status || "pending",
+            message: btRes.message || "Awaiting MoSPI calendar overlap",
+          });
+        }
+      } catch {
+        /* leave defaults */
+      }
     }
 
     loadData();
@@ -106,13 +132,26 @@ export default function DashboardPage() {
         </div>
         <div className="border border-line bg-panel p-4">
           <span className="text-[10px] text-text-dim block">
-            DGCA TRACKING r
+            BENCHMARK OVERLAP (MoSPI)
           </span>
-          <span className="text-xl md:text-2xl font-bold text-signal-green">
-            0.942
+          <span
+            className={`text-xl md:text-2xl font-bold ${
+              backtestSummary.correlation !== null
+                ? "text-signal-green"
+                : "text-accent-amber"
+            }`}
+          >
+            {backtestSummary.correlation !== null
+              ? `r: ${backtestSummary.correlation.toFixed(3)}`
+              : "PENDING"}
           </span>
-          <span className="text-[10px] text-text-dim block">
-            PEARSON CORRELATION
+          <span
+            className="text-[10px] text-text-dim block truncate"
+            title={backtestSummary.message}
+          >
+            {backtestSummary.correlation !== null
+              ? `RMSE: ${backtestSummary.trackingError?.toFixed(2) ?? "—"}`
+              : "AWAITING RELEASE"}
           </span>
         </div>
         <div className="border border-line bg-panel p-4">
@@ -139,8 +178,12 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Row 1: AeroCPI vs DGCA Benchmark Line Chart */}
-      <LiveTrendChart />
+      {/* Row 1: AeroCPI vs DGCA/MoSPI Benchmark Line Chart */}
+      <LiveTrendChart
+        token={token}
+        correlation={backtestSummary.correlation}
+        trackingError={backtestSummary.trackingError}
+      />
 
       {/* Row 2: Heatmap Matrix & Elasticity Curve */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

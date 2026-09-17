@@ -61,6 +61,27 @@ def create_db_and_tables(custom_engine=None):
     target_engine = custom_engine or engine
     SQLModel.metadata.create_all(target_engine)
     migrate_user_columns(target_engine)
+    migrate_fares_columns(target_engine)
+
+
+def migrate_fares_columns(custom_engine=None):
+    """Ensure newly added columns exist in fares table for SQLite without dropping data."""
+    target_engine = custom_engine or engine
+    from sqlalchemy import text
+    with target_engine.connect() as conn:
+        try:
+            result = conn.execute(text("PRAGMA table_info(fares)")).fetchall()
+            existing_cols = {row[1] for row in result}
+            if existing_cols:
+                new_columns = [
+                    ("observation_status", "VARCHAR DEFAULT 'available'"),
+                ]
+                for col_name, col_type in new_columns:
+                    if col_name not in existing_cols:
+                        conn.execute(text(f"ALTER TABLE fares ADD COLUMN {col_name} {col_type}"))
+                conn.commit()
+        except Exception:
+            pass
 
 
 def init_seed_user(session: Session) -> None:

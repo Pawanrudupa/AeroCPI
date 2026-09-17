@@ -42,36 +42,112 @@ def clean_and_normalize_quotes(
     departure_date: dt.date,
     source: str,
     source_type: str = "live",
-    snapshot_id: Optional[int] = None
+    snapshot_id: Optional[int] = None,
+    is_unavailable: bool = False
 ) -> List[FareQuote]:
     """
     Clean, normalize, deduplicate, and filter outliers from raw flight quotes.
     Enforces the ARCHITECTURE.md Section 4.3 component schema:
     base_fare + taxes + udf + convenience_fee = total_fare
+    Explicitly tracks sold_out and unavailable flight observations instead of dropping them.
     """
+    if is_unavailable and not raw_quotes:
+        return [FareQuote(
+            route=route.upper(),
+            carrier="N/A",
+            flight_number=None,
+            window=window.upper(),
+            departure_date=departure_date,
+            departure_time=None,
+            arrival_time=None,
+            fare_class="economy",
+            base_fare=None,
+            taxes=None,
+            udf=None,
+            convenience_fee=None,
+            total_fare=0.0,
+            currency="INR",
+            observation_status="unavailable",
+            source=source.lower(),
+            source_type=source_type,
+            raw_snapshot_id=snapshot_id
+        )]
+
     if not raw_quotes:
         return []
 
-    # Step 1: Initial parsing & filtering non-positive / sold-out entries
+    # Step 1: Initial parsing & categorization (available vs sold-out / unavailable)
     valid_candidates = []
+    sold_out_records = []
     for raw in raw_quotes:
-        total = raw.get("total_fare") or raw.get("price") or raw.get("fare")
+        total = raw.get("total_fare")
         if total is None:
-            continue
-        try:
-            total_fare = float(total)
-        except (ValueError, TypeError):
-            continue
-            
-        if total_fare <= 0:
-            continue  # Sold out / invalid
-
+            total = raw.get("price")
+        if total is None:
+            total = raw.get("fare")
         flight_no = raw.get("flight_number") or raw.get("flight_no") or raw.get("flightNo")
         carrier = raw.get("carrier") or raw.get("airline") or "Unknown"
         dep_time = raw.get("departure_time") or raw.get("depTime")
         arr_time = raw.get("arrival_time") or raw.get("arrTime")
         fare_class = raw.get("fare_class", "economy").lower()
-        
+        status_flag = str(raw.get("status") or raw.get("observation_status") or "").lower()
+        is_sold_out_flag = raw.get("sold_out") or raw.get("is_sold_out") or (status_flag in ("sold_out", "soldout"))
+        is_unavail_flag = raw.get("unavailable") or (status_flag in ("unavailable", "cancelled", "canceled"))
+
+        if is_unavail_flag:
+            sold_out_records.append(FareQuote(
+                route=route.upper(),
+                carrier=carrier,
+                flight_number=flight_no.upper() if flight_no else None,
+                window=window.upper(),
+                departure_date=departure_date,
+                departure_time=dep_time,
+                arrival_time=arr_time,
+                fare_class=fare_class,
+                base_fare=None,
+                taxes=None,
+                udf=None,
+                convenience_fee=None,
+                total_fare=0.0,
+                currency=raw.get("currency", "INR"),
+                observation_status="unavailable",
+                source=(raw.get("source") or source).lower(),
+                source_type=source_type,
+                raw_snapshot_id=snapshot_id
+            ))
+            continue
+
+        if total is None and not is_sold_out_flag:
+            continue
+        try:
+            total_fare = float(total) if total is not None else 0.0
+        except (ValueError, TypeError):
+            continue
+
+        if total_fare <= 0 or is_sold_out_flag:
+            # Record as sold-out observation instead of silently discarding
+            sold_out_records.append(FareQuote(
+                route=route.upper(),
+                carrier=carrier,
+                flight_number=flight_no.upper() if flight_no else None,
+                window=window.upper(),
+                departure_date=departure_date,
+                departure_time=dep_time,
+                arrival_time=arr_time,
+                fare_class=fare_class,
+                base_fare=None,
+                taxes=None,
+                udf=None,
+                convenience_fee=None,
+                total_fare=0.0,
+                currency=raw.get("currency", "INR"),
+                observation_status="sold_out",
+                source=(raw.get("source") or source).lower(),
+                source_type=source_type,
+                raw_snapshot_id=snapshot_id
+            ))
+            continue
+
         # Parse optional component breakdowns
         base_fare = float(raw["base_fare"]) if raw.get("base_fare") is not None else None
         taxes = float(raw["taxes"]) if raw.get("taxes") is not None else None
@@ -100,13 +176,14 @@ def clean_and_normalize_quotes(
             "convenience_fee": conv_fee,
             "total_fare": round(total_fare, 2),
             "currency": raw.get("currency", "INR"),
+            "observation_status": "available",
             "source": (raw.get("source") or source).lower(),
             "source_type": source_type,
             "raw_snapshot_id": snapshot_id
         })
 
     if not valid_candidates:
-        return []
+        return sold_out_records  # Return sold-out observations even if no valid fares
 
     # Step 2: Deduplication by (route, carrier, flight_number, departure_date, window)
     df = pd.DataFrame(valid_candidates)
@@ -149,6 +226,7 @@ def clean_and_normalize_quotes(
             convenience_fee=row["convenience_fee"],
             total_fare=row["total_fare"],
             currency=row["currency"],
+            observation_status=row["observation_status"],
             source=row["source"],
             source_type=row["source_type"],
             raw_snapshot_id=row["raw_snapshot_id"]
@@ -156,12 +234,14 @@ def clean_and_normalize_quotes(
         cleaned_quotes.append(quote)
 
     initial_count = len(raw_quotes)
+    sold_out_count = len(sold_out_records)
     event_bus.publish(PipelineEvent(
         event_type=EventType.CLEAN_STEP,
-        message=f"CLEAN {route} {window} :: {len(cleaned_quotes)} QUOTES RETAINED (from {initial_count}, {outliers_removed} OUTLIERS, {dupes_removed} DUPES)",
+        message=f"CLEAN {route} {window} :: {len(cleaned_quotes)} QUOTES RETAINED (from {initial_count}, {outliers_removed} OUTLIERS, {dupes_removed} DUPES, {sold_out_count} SOLD OUT)",
         route=route,
         window=window,
-        data={"initial": initial_count, "retained": len(cleaned_quotes), "outliers_removed": outliers_removed, "dupes_removed": dupes_removed}
+        data={"initial": initial_count, "retained": len(cleaned_quotes), "outliers_removed": outliers_removed, "dupes_removed": dupes_removed, "sold_out": sold_out_count}
     ))
 
-    return cleaned_quotes
+    return cleaned_quotes + sold_out_records
+

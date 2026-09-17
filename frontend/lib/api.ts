@@ -102,12 +102,14 @@ export interface FareQuoteRecord {
   carrier: string;
   flight_number: string;
   window: string;
+  fare_class?: string;
   base_fare: number | null;
   taxes: number | null;
   udf: number | null;
   convenience_fee: number | null;
   total_fare: number;
   currency?: string;
+  observation_status?: "available" | "sold_out" | "unavailable";
   source: string;
   source_type: "live" | "seeded";
   scraped_at: string;
@@ -116,6 +118,54 @@ export interface FareQuoteRecord {
 export interface FaresResponse {
   count: number;
   quotes: FareQuoteRecord[];
+}
+
+export interface IndexWeeklyRecord {
+  period: string;
+  index_value: number;
+}
+
+export interface IndexWeeklyResponse {
+  status: string;
+  frequency: string;
+  method: string;
+  count: number;
+  data: IndexWeeklyRecord[];
+}
+
+export interface IndexMonthlyRecord {
+  period: string;
+  index_value: number;
+  mospi_cpi: number | null;
+}
+
+export interface IndexMonthlyResponse {
+  status: string;
+  frequency: string;
+  method: string;
+  count: number;
+  data: IndexMonthlyRecord[];
+}
+
+export interface FareClassRouteBreakdown {
+  route: string;
+  fare_class: string;
+  avg_fare: number;
+  min_fare: number;
+  max_fare: number;
+  quote_count: number;
+  live_count: number;
+  seeded_count: number;
+}
+
+export interface FareClassSummary {
+  avg_fare: number;
+  count: number;
+}
+
+export interface FareClassBreakdownResponse {
+  breakdown: FareClassRouteBreakdown[];
+  class_summary: Record<string, FareClassSummary>;
 }
 
 export interface MaterialityGapRoute {
@@ -221,6 +271,25 @@ export interface ElevationRequestRecord {
   review_notes: string | null;
 }
 
+export interface BacktestResponse {
+  status: string;
+  message?: string;
+  months_compared?: number;
+  overlapping_points?: number;
+  correlation: number | null;
+  tracking_error: number | null;
+  benchmark_type?: string;
+  benchmark_source?: string;
+  series?: Array<{
+    month: string;
+    aerocpi_index: number | null;
+    mospi_index: number | null;
+    mospi_raw_cpi: number | null;
+    divergence: number | null;
+    provenance?: any;
+  }>;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Typed endpoint functions                                           */
 /* ------------------------------------------------------------------ */
@@ -230,6 +299,15 @@ export const api = {
 
   dailyIndex: (token: string) =>
     apiFetch<IndexDailyResponse>("/index/daily", token),
+
+  weeklyIndex: (token: string) =>
+    apiFetch<IndexWeeklyResponse>("/index/weekly", token),
+
+  monthlyIndex: (token: string) =>
+    apiFetch<IndexMonthlyResponse>("/index/monthly", token),
+
+  fareClassBreakdown: (token: string) =>
+    apiFetch<FareClassBreakdownResponse>("/reports/fare-class-breakdown", token),
 
   routeIndex: (token: string, pair: string) =>
     apiFetch<IndexRouteResponse>(`/index/route/${pair.toUpperCase()}`, token),
@@ -257,13 +335,15 @@ export const api = {
   coverageMatrix: (token: string) =>
     apiFetch<{
       total_quotes_in_db: number;
+      total_sold_out: number;
+      total_unavailable: number;
       matrix: Record<
         string,
-        Record<string, { total: number; live: number; seeded: number }>
+        Record<string, { total: number; live: number; seeded: number; sold_out?: number; unavailable?: number }>
       >;
     }>("/reports/coverage-matrix", token),
 
-  backtest: (token: string) => apiFetch<unknown>("/backtest/dgca", token),
+  backtest: (token: string) => apiFetch<BacktestResponse>("/backtest/dgca", token),
 
   triggerSync: (token: string) =>
     apiFetch<{ status: string; scrapes_executed: number; index_points_computed: number }>(

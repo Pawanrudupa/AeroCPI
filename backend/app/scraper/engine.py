@@ -72,6 +72,7 @@ def run_pipeline_for_route(
     )
 
     # 3. Clean and normalize
+    is_unavail = (scrape_res.status == "no_flights_found")
     cleaned_quotes: List[FareQuote] = clean_and_normalize_quotes(
         raw_quotes=scrape_res.parsed_quotes,
         route=route,
@@ -79,7 +80,8 @@ def run_pipeline_for_route(
         departure_date=departure_date,
         source=scrape_res.source,
         source_type=scrape_res.source_type,
-        snapshot_id=snapshot.id
+        snapshot_id=snapshot.id,
+        is_unavailable=is_unavail
     )
 
     # 4. Save to DB

@@ -25,6 +25,7 @@ frontend/out/
 
 # Data landing zone (raw scrapes kept locally for dev, or backed up to S3)
 data/raw/live_*
+data/raw/seeded_*
 
 # IDE
 .vscode/
