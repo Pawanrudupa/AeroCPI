@@ -34,11 +34,19 @@ export default function DashboardPage() {
     trackingError: number | null;
     status: string;
     message: string;
+    overlapDetected: boolean;
+    overlappingPoints: number;
+    overlappingMonths: string[];
+    overlapMessage: string;
   }>({
     correlation: null,
     trackingError: null,
     status: "pending",
     message: "Awaiting MoSPI calendar overlap",
+    overlapDetected: false,
+    overlappingPoints: 0,
+    overlappingMonths: [],
+    overlapMessage: "Awaiting MoSPI calendar overlap",
   });
 
   /* Load data from backend on mount */
@@ -103,6 +111,10 @@ export default function DashboardPage() {
             trackingError: btRes.tracking_error ?? null,
             status: btRes.status || "pending",
             message: btRes.message || "Awaiting MoSPI calendar overlap",
+            overlapDetected: btRes.overlap_detected ?? false,
+            overlappingPoints: btRes.overlapping_points ?? 0,
+            overlappingMonths: btRes.overlapping_months ?? [],
+            overlapMessage: btRes.overlap_message || "Awaiting MoSPI calendar overlap",
           });
         }
       } catch {
@@ -130,29 +142,40 @@ export default function DashboardPage() {
             {indexSummary.change} from base
           </span>
         </div>
-        <div className="border border-line bg-panel p-4">
+        <div className="border border-line bg-panel p-4 relative group">
           <span className="text-[10px] text-text-dim block">
             BENCHMARK OVERLAP (MoSPI)
           </span>
           <span
             className={`text-xl md:text-2xl font-bold ${
-              backtestSummary.correlation !== null
+              backtestSummary.overlappingPoints >= 2
                 ? "text-signal-green"
+                : backtestSummary.overlappingPoints === 1
+                ? "text-accent-amber"
                 : "text-accent-amber"
             }`}
           >
-            {backtestSummary.correlation !== null
+            {backtestSummary.overlappingPoints >= 2 && backtestSummary.correlation !== null
               ? `r: ${backtestSummary.correlation.toFixed(3)}`
+              : backtestSummary.overlappingPoints === 1
+              ? "ACTIVE (1 MO)"
               : "PENDING"}
           </span>
           <span
-            className="text-[10px] text-text-dim block truncate"
-            title={backtestSummary.message}
+            className="text-[10px] text-text-dim block truncate cursor-help"
+            title={backtestSummary.overlapMessage}
           >
-            {backtestSummary.correlation !== null
+            {backtestSummary.overlappingPoints >= 2
               ? `RMSE: ${backtestSummary.trackingError?.toFixed(2) ?? "—"}`
+              : backtestSummary.overlappingPoints === 1
+              ? "See tooltip for divergence"
               : "AWAITING RELEASE"}
           </span>
+          
+          {/* Tooltip for the whole card to explain state */}
+          <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-black border border-line p-2 -top-12 left-0 right-0 text-xs text-text-primary z-10 pointer-events-none rounded shadow-lg whitespace-nowrap overflow-hidden text-ellipsis">
+            {backtestSummary.overlapMessage}
+          </div>
         </div>
         <div className="border border-line bg-panel p-4">
           <span className="text-[10px] text-text-dim block">

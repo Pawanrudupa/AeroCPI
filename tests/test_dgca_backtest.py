@@ -71,3 +71,54 @@ def test_dgca_ingestion_and_backtest(session: Session):
     assert backtest["status"] == "success"
     assert len(backtest["series"]) >= 2
     assert backtest["correlation"] is not None
+    assert backtest["overlap_detected"] is True
+    assert backtest["overlapping_points"] == 2
+    assert "MoSPI calendar overlap active" in backtest["overlap_message"]
+
+def test_backtest_overlap_detection(session: Session):
+    from backend.app.models import MospiBenchmark
+    d1 = dt.date(2026, 9, 15)
+    session.add(IndexDaily(date=d1, index_value=105.0, base_period=d1, method="GEKS-Törnqvist"))
+    
+    # Insert 1 MoSPI point
+    session.add(MospiBenchmark(
+        month="2026-09",
+        cpi_index=110.0,
+        sector="Combined",
+        source_document="MoSPI",
+        publication_date="2026-10-12",
+        source_url="http://pib.gov.in"
+    ))
+    session.commit()
+    
+    bt1 = compute_backtest_metrics(session)
+    assert bt1["overlap_detected"] is True
+    assert bt1["overlapping_points"] == 1
+    assert "Single calendar overlap point" in bt1["overlap_message"]
+    assert bt1["correlation"] is None
+    
+    # Insert non-overlapping MoSPI point
+    session.add(MospiBenchmark(
+        month="2026-01",
+        cpi_index=100.0,
+        sector="Combined",
+        source_document="MoSPI",
+        publication_date="2026-02-12",
+        source_url="http://pib.gov.in"
+    ))
+    session.commit()
+    
+    bt2 = compute_backtest_metrics(session)
+    # The overlapping points remain 1, but we have 2 mospi points
+    assert bt2["overlapping_points"] == 1
+    
+    # Add a second overlapping point
+    d2 = dt.date(2026, 1, 15)
+    session.add(IndexDaily(date=d2, index_value=100.0, base_period=d2, method="GEKS-Törnqvist"))
+    session.commit()
+    
+    bt3 = compute_backtest_metrics(session)
+    assert bt3["overlapping_points"] == 2
+    assert "MoSPI calendar overlap active" in bt3["overlap_message"]
+    assert bt3["correlation"] is not None
+

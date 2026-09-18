@@ -101,13 +101,43 @@ def compute_backtest_metrics(session: Session) -> Dict[str, Any]:
         except Exception as e:
             logger.error(f"Error computing correlation: {e}")
 
+    # Overlap detection metadata
+    overlapping_months = [
+        s["month"] for s in series
+        if s["aerocpi_index"] is not None and s["mospi_index"] is not None
+    ]
+    overlap_detected = len(overlapping_months) > 0
+    num_overlap = len(overlapping_months)
+
+    # Build descriptive overlap message
+    if num_overlap == 0:
+        overlap_message = "Awaiting MoSPI calendar overlap (0 months overlap with AeroCPI observation dates)."
+    elif num_overlap == 1:
+        div_val = series[next(i for i, s in enumerate(series) if s["month"] == overlapping_months[0])]["divergence"]
+        div_str = f"{div_val:+.2f}" if div_val is not None else "N/A"
+        overlap_message = (
+            f"Single calendar overlap point ({overlapping_months[0]}). "
+            f"Divergence: {div_str}. Pearson r requires >= 2 months."
+        )
+    else:
+        r_str = f"{correlation:.4f}" if correlation is not None else "N/A"
+        rmse_str = f"{tracking_error:.2f}" if tracking_error is not None else "N/A"
+        overlap_message = (
+            f"MoSPI calendar overlap active ({num_overlap} months). "
+            f"Pearson r = {r_str}, RMSE = {rmse_str}."
+        )
+
     return {
         "status": "success",
         "months_compared": len(series),
-        "overlapping_points": len(aerocpi_vals),
+        "overlapping_points": num_overlap,
+        "overlap_detected": overlap_detected,
+        "overlapping_months": overlapping_months,
+        "overlap_message": overlap_message,
         "correlation": correlation,
         "tracking_error": tracking_error,
         "benchmark_type": "OFFICIAL_GOVERNMENT_AGGREGATE",
         "benchmark_source": "MoSPI CPI Div 07.3 Passenger transport services (Base 2024=100, Ref: PRID 2220040)",
         "series": series
     }
+

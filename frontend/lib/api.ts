@@ -276,6 +276,9 @@ export interface BacktestResponse {
   message?: string;
   months_compared?: number;
   overlapping_points?: number;
+  overlap_detected?: boolean;
+  overlapping_months?: string[];
+  overlap_message?: string;
   correlation: number | null;
   tracking_error: number | null;
   benchmark_type?: string;

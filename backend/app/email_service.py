@@ -275,3 +275,98 @@ AeroCPI Administration Hub
 </html>
 """
     return send_email(recipient_email, subject, body_text, html_content)
+
+
+def send_mospi_overlap_notification(
+    admin_email: str,
+    month: str,
+    aerocpi_val: float,
+    mospi_val: float,
+    divergence: float,
+    correlation: Optional[float] = None,
+    tracking_error: Optional[float] = None,
+    num_overlap: int = 1
+) -> Dict[str, Any]:
+    """
+    Dispatches a notification email when a newly entered MoSPI benchmark month
+    overlaps with AeroCPI's observation-date index calendar.
+    """
+    subject = f"[AeroCPI] MoSPI Calendar Overlap Detected — {month}"
+
+    div_str = f"{divergence:+.2f}"
+    corr_section = ""
+    if correlation is not None:
+        corr_section = f"\nCorrelation (Pearson r): {correlation:.4f}\nTracking Error (RMSE): {tracking_error:.2f}" if tracking_error is not None else f"\nCorrelation (Pearson r): {correlation:.4f}"
+    elif num_overlap == 1:
+        corr_section = "\nCorrelation: Not computed (requires >= 2 overlapping months)."
+
+    body_text = f"""AeroCPI Backtest Alert
+
+A newly entered MoSPI CPI benchmark for {month} has calendar overlap with AeroCPI observation-date index data.
+
+Month: {month}
+AeroCPI Monthly Index: {aerocpi_val:.2f}
+MoSPI CPI (normalized): {mospi_val:.2f}
+Divergence (AeroCPI - MoSPI): {div_str}
+Total Overlapping Months: {num_overlap}
+{corr_section}
+
+This is an automated notification. Review the backtest dashboard for full analysis:
+{settings.APP_BASE_URL}/dashboard
+
+— AeroCPI Backtest Monitor
+"""
+
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {{ font-family: 'JetBrains Mono', monospace, -apple-system, BlinkMacSystemFont, sans-serif; background: #0a0a06; color: #E8E4D4; padding: 24px; }}
+    .card {{ background: #12120C; border: 1px solid #262316; border-radius: 6px; max-width: 550px; margin: 0 auto; padding: 24px; }}
+    .tag {{ display: inline-block; padding: 2px 8px; font-size: 11px; font-family: monospace; background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 4px; }}
+    h2 {{ color: #C9A227; margin-top: 12px; font-size: 18px; }}
+    .field {{ margin: 8px 0; }}
+    .label {{ font-size: 10px; color: #8A8672; text-transform: uppercase; letter-spacing: 0.5px; }}
+    .value {{ font-size: 14px; color: #E8E4D4; font-weight: bold; }}
+    .divergence {{ font-size: 18px; color: {'#22c55e' if divergence >= 0 else '#ef4444'}; font-weight: bold; }}
+    .btn {{ display: inline-block; padding: 10px 18px; background: #C9A227; color: #000; font-weight: bold; font-family: monospace; font-size: 12px; text-decoration: none; border-radius: 4px; margin-top: 12px; }}
+    .footer {{ margin-top: 24px; font-size: 11px; color: #8A8672; border-top: 1px solid #262316; padding-top: 12px; }}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="tag">OVERLAP DETECTED</span>
+    <h2>MoSPI Calendar Overlap &mdash; {month}</h2>
+
+    <div class="field">
+      <div class="label">AeroCPI Monthly Index</div>
+      <div class="value">{aerocpi_val:.2f}</div>
+    </div>
+    <div class="field">
+      <div class="label">MoSPI CPI (Normalized)</div>
+      <div class="value">{mospi_val:.2f}</div>
+    </div>
+    <div class="field">
+      <div class="label">Divergence</div>
+      <div class="divergence">{div_str}</div>
+    </div>
+    <div class="field">
+      <div class="label">Total Overlapping Months</div>
+      <div class="value">{num_overlap}</div>
+    </div>
+    {f'<div class="field"><div class="label">Pearson r</div><div class="value">{correlation:.4f}</div></div>' if correlation is not None else '<div class="field"><div class="label">Pearson r</div><div class="value" style="color: #C9A227;">Requires &ge; 2 overlapping months</div></div>'}
+
+    <div style="margin-top: 20px;">
+      <a href="{settings.APP_BASE_URL}/dashboard" class="btn">REVIEW BACKTEST DASHBOARD &rarr;</a>
+    </div>
+
+    <div class="footer">
+      AeroCPI Automated Backtest Monitor &bull; This is an informational notification.
+    </div>
+  </div>
+</body>
+</html>
+"""
+    return send_email(admin_email, subject, body_text, html_content)
+

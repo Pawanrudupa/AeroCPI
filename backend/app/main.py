@@ -1322,12 +1322,63 @@ def add_mospi_benchmark(
         action = "created"
 
     session.commit()
+
+    # --- Automated Overlap Detection & Notification ---
+    from backend.app.dgca.backtest import compute_backtest_metrics
+    from backend.app.email_service import send_mospi_overlap_notification
+    from backend.app.events import event_bus, PipelineEvent, EventType
+
+    backtest = compute_backtest_metrics(session)
+    overlap_detected = backtest.get("overlap_detected", False)
+    overlap_notification_sent = False
+
+    if overlap_detected:
+        # Find if the just-upserted month is one of the overlapping months
+        overlapping = backtest.get("overlapping_months", [])
+        if clean_month in overlapping:
+            # Find the divergence for this specific month
+            series_entry = next(
+                (s for s in backtest.get("series", []) if s["month"] == clean_month),
+                None
+            )
+            if series_entry and series_entry["aerocpi_index"] is not None and series_entry["mospi_index"] is not None:
+                admin_email = settings.ADMIN_NOTIFICATION_EMAIL
+                if admin_email:
+                    send_mospi_overlap_notification(
+                        admin_email=admin_email,
+                        month=clean_month,
+                        aerocpi_val=series_entry["aerocpi_index"],
+                        mospi_val=series_entry["mospi_index"],
+                        divergence=series_entry["divergence"] or 0.0,
+                        correlation=backtest.get("correlation"),
+                        tracking_error=backtest.get("tracking_error"),
+                        num_overlap=len(overlapping),
+                    )
+                    overlap_notification_sent = True
+
+                # Emit SSE event
+                event_bus.publish(PipelineEvent(
+                    event_type=EventType.BACKTEST_UPDATE,
+                    message=backtest.get("overlap_message", "MoSPI overlap detected."),
+                    data={
+                        "month": clean_month,
+                        "overlap_detected": True,
+                        "overlapping_points": len(overlapping),
+                        "correlation": backtest.get("correlation"),
+                        "tracking_error": backtest.get("tracking_error"),
+                        "divergence": series_entry.get("divergence"),
+                    }
+                ))
+
     return {
         "status": "success",
         "message": f"MoSPI benchmark for {clean_month} ({payload.sector}) {action}.",
         "month": clean_month,
         "cpi_index": payload.cpi_index,
         "action": action,
+        "overlap_detected": overlap_detected,
+        "overlap_message": backtest.get("overlap_message"),
+        "notification_sent": overlap_notification_sent,
     }
 
 
