@@ -68,6 +68,7 @@ def test_fare_class_cleaner_and_breakdown(test_session):
 def test_sold_out_and_unavailable_handling(test_session):
     engine = test_session
     dep_date = dt.date(2026, 9, 25)
+    obs_date = dt.datetime(2026, 9, 18, 12, 0, 0, tzinfo=dt.timezone.utc)
     raw_mixed = [
         {"carrier": "IndiGo", "flight_no": "6E-100", "total_fare": 0.0},
         {"carrier": "IndiGo", "flight_no": "6E-101", "total_fare": 5000.0, "status": "sold_out"},
@@ -81,11 +82,14 @@ def test_sold_out_and_unavailable_handling(test_session):
     assert statuses["6E-101"] == "sold_out"
     assert statuses["SG-200"] == "unavailable"
     assert statuses["QP-300"] == "available"
+    # Set scraped_at so observation-date bucketing groups correctly
+    for q in cleaned:
+        q.scraped_at = obs_date
     with Session(engine) as session:
         for q in cleaned:
             session.add(q)
         session.commit()
-        daily_records = calculate_and_save_daily_indices(session, base_date=dep_date)
+        daily_records = calculate_and_save_daily_indices(session, base_date=obs_date.date())
         assert len(daily_records) >= 1
         route_rec = session.exec(select(IndexRoute).where(IndexRoute.route == "DEL-BOM")).first()
         assert route_rec is not None

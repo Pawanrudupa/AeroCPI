@@ -14,6 +14,7 @@ import pandas as pd
 from sqlmodel import Session, select
 from backend.app.models import FareQuote, IndexDaily, IndexRoute
 from backend.app.events import event_bus, PipelineEvent, EventType
+from backend.app.config import settings
 
 logger = logging.getLogger("aerocpi.index.geks")
 
@@ -149,6 +150,8 @@ def calculate_and_save_daily_indices(
     """
     Extract all quotes from DB, calculate multilateral GEKS-Törnqvist indices,
     and persist results to index_daily and index_route tables.
+    Time-axis is bucketed by observation date (scraped_at), not departure date,
+    aligning with standard CPI methodology (price at time of observation).
     """
     quotes = session.exec(
         select(FareQuote).where(FareQuote.observation_status == "available")
@@ -161,7 +164,7 @@ def calculate_and_save_daily_indices(
     records = []
     for q in quotes:
         records.append({
-            "date": q.departure_date,
+            "date": q.scraped_at.date() if q.scraped_at else q.departure_date,
             "route": q.route,
             "total_fare": q.total_fare,
             "base_fare": q.base_fare,
@@ -264,7 +267,7 @@ def calculate_and_save_daily_indices(
         baseline_avg = float(baseline_vals.mean()) if len(baseline_vals) > 0 else current_val
         if baseline_avg > 0:
             pct_above = ((current_val - baseline_avg) / baseline_avg) * 100
-            if pct_above >= 20:
+            if pct_above >= settings.SURGE_THRESHOLD_PCT:
                 event_bus.publish(PipelineEvent(
                     event_type=EventType.SURGE_DETECTED,
                     message=f"\u25b2 SURGE :: {r} \u2014 {pct_above:.0f}% ABOVE BASELINE",

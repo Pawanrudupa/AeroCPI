@@ -191,7 +191,7 @@ export default function DashboardPage() {
           <HeatmapMatrix />
         </div>
         <div className="lg:col-span-5">
-          <ElasticityCurve />
+          <ElasticityCurve token={token} />
         </div>
       </div>
 

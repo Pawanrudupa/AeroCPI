@@ -97,15 +97,20 @@ def test_aggregation_functions():
 
 
 def test_calculate_and_save_daily_indices(session: Session):
-    """Verify persisting GEKS indices into SQLModel database."""
+    """Verify persisting GEKS indices into SQLModel database (observation-date bucketing)."""
+    import datetime as _dt
     d0 = dt.date(2026, 9, 1)
     d1 = dt.date(2026, 9, 2)
 
+    # scraped_at determines the index time-axis (observation date), not departure_date
+    scraped_d0 = _dt.datetime(2026, 9, 1, 12, 0, 0, tzinfo=_dt.timezone.utc)
+    scraped_d1 = _dt.datetime(2026, 9, 2, 12, 0, 0, tzinfo=_dt.timezone.utc)
+
     quotes = [
-        FareQuote(route="DEL-BOM", carrier="IndiGo", window="T+7", departure_date=d0, total_fare=5000.0, source="indigo", source_type="live"),
-        FareQuote(route="DEL-BLR", carrier="IndiGo", window="T+7", departure_date=d0, total_fare=6000.0, source="indigo", source_type="live"),
-        FareQuote(route="DEL-BOM", carrier="IndiGo", window="T+7", departure_date=d1, total_fare=5250.0, source="indigo", source_type="live"),
-        FareQuote(route="DEL-BLR", carrier="IndiGo", window="T+7", departure_date=d1, total_fare=6300.0, source="indigo", source_type="seeded"),
+        FareQuote(route="DEL-BOM", carrier="IndiGo", window="T+7", departure_date=dt.date(2026, 9, 8), total_fare=5000.0, source="indigo", source_type="live", scraped_at=scraped_d0),
+        FareQuote(route="DEL-BLR", carrier="IndiGo", window="T+7", departure_date=dt.date(2026, 9, 8), total_fare=6000.0, source="indigo", source_type="live", scraped_at=scraped_d0),
+        FareQuote(route="DEL-BOM", carrier="IndiGo", window="T+7", departure_date=dt.date(2026, 9, 9), total_fare=5250.0, source="indigo", source_type="live", scraped_at=scraped_d1),
+        FareQuote(route="DEL-BLR", carrier="IndiGo", window="T+7", departure_date=dt.date(2026, 9, 9), total_fare=6300.0, source="indigo", source_type="seeded", scraped_at=scraped_d1),
     ]
     for q in quotes:
         session.add(q)
@@ -114,7 +119,7 @@ def test_calculate_and_save_daily_indices(session: Session):
     saved = calculate_and_save_daily_indices(session, base_date=d0)
     assert len(saved) == 2
 
-    # Check DB tables
+    # Check DB tables — grouped by scraped_at.date(), not departure_date
     db_daily = session.exec(select(IndexDaily).order_by(IndexDaily.date)).all()
     assert len(db_daily) == 2
     assert db_daily[0].index_value == 100.0

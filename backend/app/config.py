@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     SERPAPI: Optional[str] = None
     SERPAPI_API_KEY: Optional[str] = None
 
+    # Surge detection threshold (percentage above baseline to flag as surge)
+    SURGE_THRESHOLD_PCT: float = 20.0
+
     # Admin Notification & Lightweight Transactional Email
     ADMIN_NOTIFICATION_EMAIL: Optional[str] = None
     SMTP_HOST: Optional[str] = None

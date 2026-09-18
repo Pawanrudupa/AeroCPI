@@ -290,6 +290,24 @@ export interface BacktestResponse {
   }>;
 }
 
+export interface ElasticityWindowRecord {
+  window: string;
+  days_to_departure: number;
+  average_fare: number;
+  elasticity_index: number;
+  sample_size: number;
+  live_count: number;
+  seeded_count: number;
+}
+
+export interface ElasticityResponse {
+  status: string;
+  message?: string;
+  base_window?: string;
+  spread_pct?: number;
+  windows: ElasticityWindowRecord[];
+}
+
 /* ------------------------------------------------------------------ */
 /*  Typed endpoint functions                                           */
 /* ------------------------------------------------------------------ */
@@ -383,7 +401,22 @@ export const api = {
       token || null,
     ),
 
+  elasticity: (token?: string | null) =>
+    apiFetch<ElasticityResponse>(
+      "/pipeline/elasticity",
+      token || null,
+    ),
+
   /* Admin Endpoints */
+  adminAddMospiBenchmark: (
+    token: string,
+    data: { month: string; cpi_index: number; source_document: string; publication_date: string; source_url: string }
+  ) =>
+    apiFetch<{ status: string; message: string }>("/admin/mospi-benchmark", token, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   adminListUsers: (token: string) =>
     apiFetch<UserAdminRecord[]>("/admin/users", token),
 

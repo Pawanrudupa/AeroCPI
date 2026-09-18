@@ -28,6 +28,7 @@ from backend.app.models import (
     IndexDaily,
     IndexRoute,
     DGCABenchmark,
+    MospiBenchmark,
     LoginEvent,
     ElevationRequest,
 )
@@ -1143,7 +1144,7 @@ def get_surge_status(
             baseline_avg = statistics.mean(baseline_fares) if baseline_fares else current_avg
 
             pct_above = ((current_avg - baseline_avg) / baseline_avg * 100) if baseline_avg > 0 else 0
-            is_surge = pct_above >= 20
+            is_surge = pct_above >= settings.SURGE_THRESHOLD_PCT
 
             results.append({
                 "route": route,
@@ -1155,6 +1156,179 @@ def get_surge_status(
             })
 
     return {"surges": results}
+
+
+@app.get("/pipeline/elasticity", tags=["Pipeline Operations"])
+def get_elasticity_curve(
+    session: Session = Depends(get_session)
+):
+    """
+    Compute basket-wide booking-window elasticity curve from real FareQuote records.
+    Returns average fare per advance-purchase window (T+7, T+15, T+30),
+    normalized to an elasticity index where T+30 = 100.0.
+    """
+    windows = ["T+7", "T+15", "T+30"]
+    window_order = {w: i for i, w in enumerate(windows)}
+
+    fares = session.exec(
+        select(FareQuote).where(
+            FareQuote.observation_status == "available",
+            FareQuote.window.in_(windows)
+        )
+    ).all()
+
+    if not fares:
+        return {
+            "status": "insufficient_data",
+            "message": "No fare quotes available to compute elasticity curve.",
+            "windows": []
+        }
+
+    # Group by window
+    from collections import defaultdict
+    window_data: Dict[str, list] = defaultdict(list)
+    window_live: Dict[str, int] = defaultdict(int)
+    window_seeded: Dict[str, int] = defaultdict(int)
+
+    for f in fares:
+        if f.window in window_order:
+            window_data[f.window].append(f.total_fare)
+            if f.source_type == "live":
+                window_live[f.window] += 1
+            else:
+                window_seeded[f.window] += 1
+
+    # Need at least 2 windows with data
+    active_windows = [w for w in windows if len(window_data[w]) > 0]
+    if len(active_windows) < 2:
+        return {
+            "status": "insufficient_data",
+            "message": f"Only {len(active_windows)} window(s) have data. Need at least 2 for an elasticity curve.",
+            "windows": []
+        }
+
+    # Compute median fare per window
+    import statistics as _stats
+    window_medians: Dict[str, float] = {}
+    for w in active_windows:
+        window_medians[w] = _stats.median(window_data[w])
+
+    # Normalize: T+30 = 100.0 (or the longest available window as base)
+    base_window = "T+30" if "T+30" in window_medians else active_windows[-1]
+    base_fare = window_medians[base_window]
+
+    result_windows = []
+    for w in windows:
+        if w not in window_medians:
+            continue
+        median_fare = window_medians[w]
+        days = int(w.replace("T+", ""))
+        elasticity_index = round((median_fare / base_fare) * 100.0, 2) if base_fare > 0 else 100.0
+        result_windows.append({
+            "window": w,
+            "days_to_departure": days,
+            "average_fare": round(median_fare, 2),
+            "elasticity_index": elasticity_index,
+            "sample_size": len(window_data[w]),
+            "live_count": window_live[w],
+            "seeded_count": window_seeded[w],
+        })
+
+    # Sort by days ascending (T+7 first)
+    result_windows.sort(key=lambda x: x["days_to_departure"])
+
+    # Compute spread: shortest window vs longest window
+    if len(result_windows) >= 2:
+        spread_pct = round(result_windows[0]["elasticity_index"] - result_windows[-1]["elasticity_index"], 1)
+    else:
+        spread_pct = 0.0
+
+    return {
+        "status": "success",
+        "base_window": base_window,
+        "spread_pct": spread_pct,
+        "windows": result_windows
+    }
+
+
+# -----------------------------------------------------------------------------
+# Admin: MoSPI Benchmark Data Entry (Manual, Provenance-Validated)
+# -----------------------------------------------------------------------------
+
+class MospiBenchmarkPayload(BaseModel):
+    month: str  # YYYY-MM format
+    cpi_index: float
+    source_document: str
+    publication_date: str
+    source_url: str
+    sector: str = "Combined"
+
+
+@app.post("/admin/mospi-benchmark", tags=["Admin"])
+def add_mospi_benchmark(
+    payload: MospiBenchmarkPayload,
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session)
+):
+    """
+    Manually record a verified MoSPI CPI Div 07.3 benchmark data point.
+    Enforces strict provenance fields (source_document, publication_date, source_url).
+    Upserts: if a record for the given month+sector already exists, it is updated.
+    """
+    clean_month = payload.month.strip()
+    clean_doc = payload.source_document.strip()
+    clean_date = payload.publication_date.strip()
+    clean_url = payload.source_url.strip()
+
+    # Validate month format
+    import re
+    if not re.match(r"^\d{4}-\d{2}$", clean_month):
+        raise HTTPException(status_code=400, detail="Month must be in YYYY-MM format (e.g. 2026-01)")
+
+    # Enforce provenance
+    if not clean_doc:
+        raise HTTPException(status_code=400, detail="source_document is required for provenance integrity")
+    if not clean_date:
+        raise HTTPException(status_code=400, detail="publication_date is required for provenance integrity")
+    if not clean_url:
+        raise HTTPException(status_code=400, detail="source_url is required for provenance integrity")
+
+    # Upsert
+    existing = session.exec(
+        select(MospiBenchmark).where(
+            MospiBenchmark.month == clean_month,
+            MospiBenchmark.sector == payload.sector
+        )
+    ).first()
+
+    if existing:
+        existing.cpi_index = payload.cpi_index
+        existing.source_document = clean_doc
+        existing.publication_date = clean_date
+        existing.source_url = clean_url
+        session.add(existing)
+        action = "updated"
+    else:
+        new_rec = MospiBenchmark(
+            month=clean_month,
+            cpi_index=payload.cpi_index,
+            sector=payload.sector,
+            benchmark_type="OFFICIAL_GOVERNMENT",
+            source_document=clean_doc,
+            publication_date=clean_date,
+            source_url=clean_url,
+        )
+        session.add(new_rec)
+        action = "created"
+
+    session.commit()
+    return {
+        "status": "success",
+        "message": f"MoSPI benchmark for {clean_month} ({payload.sector}) {action}.",
+        "month": clean_month,
+        "cpi_index": payload.cpi_index,
+        "action": action,
+    }
 
 
 # -----------------------------------------------------------------------------
