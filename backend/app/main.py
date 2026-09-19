@@ -42,6 +42,7 @@ from backend.app.security import (
     generate_temp_password,
 )
 from backend.app.dgca.ingestion import ingest_dgca_csv
+from backend.app.mospi.ingestion import ingest_mospi_csv
 from backend.app.dgca.backtest import compute_backtest_metrics
 from backend.app.scraper.basket_runner import run_full_basket_pipeline
 from backend.app.index.geks import calculate_and_save_daily_indices
@@ -68,6 +69,14 @@ async def lifespan(app: FastAPI):
         if os.path.exists(dgca_file):
             try:
                 ingest_dgca_csv(session, dgca_file)
+            except Exception as e:
+                pass
+
+        # Auto-ingest official MoSPI benchmark dataset if available
+        mospi_file = os.path.join("data", "mospi", "verified_mospi_cpi.csv")
+        if os.path.exists(mospi_file):
+            try:
+                ingest_mospi_csv(session, mospi_file)
             except Exception as e:
                 pass
     yield

@@ -30,3 +30,6 @@ data/raw/seeded_*
 # IDE
 .vscode/
 .idea/
+
+# Scratch & temporary test scripts
+scratch/

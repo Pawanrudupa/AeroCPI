@@ -54,6 +54,26 @@ services:
     depends_on:
       - backend
 
+  scheduler:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: aerocpi_scheduler
+    restart: always
+    command: ["python", "-m", "backend.app.scheduler", "--interval-minutes", "360"]
+    environment:
+      DATABASE_URL: postgresql://aerocpi_user:${POSTGRES_PASSWORD:-aerocpi_secret_password}@postgres:5432/aerocpi_db
+      JWT_SECRET: ${JWT_SECRET:-aerocpi_dev_jwt_secret_key_change_me_2026}
+      RAW_STORAGE_DIR: /app/data/raw
+      SERPAPI_API_KEY: ${SERPAPI_API_KEY:-}
+    volumes:
+      - raw_data:/app/data/raw
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_started
+
 volumes:
   postgres_data:
   raw_data:

@@ -176,29 +176,6 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          {/* Demo Account Notice */}
-          <div className="border border-line bg-bg-void/60 px-4 py-3 text-[11px] font-mono text-text-dim space-y-1">
-            <p>
-              <span className="text-accent-amber font-bold">
-                DEMO / EVALUATION ACCOUNT
-              </span>
-            </p>
-            <p>
-              Email:{" "}
-              <span className="text-text-primary">
-                demo.analyst@aerocpi.local
-              </span>
-            </p>
-            <p>
-              Password: set via{" "}
-              <span className="text-text-primary">SEED_ANALYST_PASSWORD</span>{" "}
-              environment variable
-            </p>
-            <p className="pt-1 text-text-dim/70">
-              This is a prototype authentication system for evaluation purposes.
-              Not a production RBI/MoSPI deployment.
-            </p>
-          </div>
         </form>
 
         {/* Footer */}
