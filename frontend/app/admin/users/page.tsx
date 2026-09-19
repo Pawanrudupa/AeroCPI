@@ -38,6 +38,17 @@ export default function AdminUsersPage() {
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const [elevationTab, setElevationTab] = useState<"pending" | "all">("pending");
 
+  // MoSPI Benchmark Modal State
+  const [showMospiModal, setShowMospiModal] = useState(false);
+  const [mospiMonth, setMospiMonth] = useState("");
+  const [mospiCpiIndex, setMospiCpiIndex] = useState("");
+  const [mospiSourceDoc, setMospiSourceDoc] = useState("");
+  const [mospiPubDate, setMospiPubDate] = useState("");
+  const [mospiSourceUrl, setMospiSourceUrl] = useState("");
+  const [mospiSubmitting, setMospiSubmitting] = useState(false);
+  const [mospiError, setMospiError] = useState<string | null>(null);
+  const [mospiSuccess, setMospiSuccess] = useState<{ message: string; overlap_detected?: boolean; overlap_message?: string } | null>(null);
+
   const fetchUsers = useCallback(async () => {
     if (!token) return;
     try {
@@ -215,6 +226,67 @@ export default function AdminUsersPage() {
     setTimeout(() => setCopied(false), 2500);
   };
 
+  const handleMospiSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    setMospiError(null);
+    setMospiSuccess(null);
+    setMospiSubmitting(true);
+
+    // Client-side YYYY-MM validation
+    if (!/^\d{4}-\d{2}$/.test(mospiMonth.trim())) {
+      setMospiError("Month must be in YYYY-MM format (e.g. 2026-01).");
+      setMospiSubmitting(false);
+      return;
+    }
+
+    const cpiVal = parseFloat(mospiCpiIndex);
+    if (isNaN(cpiVal) || cpiVal <= 0) {
+      setMospiError("CPI Index must be a positive number.");
+      setMospiSubmitting(false);
+      return;
+    }
+
+    try {
+      const res = await api.adminAddMospiBenchmark(token, {
+        month: mospiMonth.trim(),
+        cpi_index: cpiVal,
+        source_document: mospiSourceDoc.trim(),
+        publication_date: mospiPubDate.trim(),
+        source_url: mospiSourceUrl.trim(),
+      });
+      setMospiSuccess({
+        message: res.message,
+        overlap_detected: (res as Record<string, unknown>).overlap_detected as boolean | undefined,
+        overlap_message: (res as Record<string, unknown>).overlap_message as string | undefined,
+      });
+      // Reset form fields on success
+      setMospiMonth("");
+      setMospiCpiIndex("");
+      setMospiSourceDoc("");
+      setMospiPubDate("");
+      setMospiSourceUrl("");
+      setStatusMsg({ text: res.message, type: "success" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to submit MoSPI benchmark";
+      setMospiError(msg);
+    } finally {
+      setMospiSubmitting(false);
+    }
+  };
+
+  const resetMospiModal = () => {
+    setShowMospiModal(false);
+    setMospiError(null);
+    setMospiSuccess(null);
+    setMospiMonth("");
+    setMospiCpiIndex("");
+    setMospiSourceDoc("");
+    setMospiPubDate("");
+    setMospiSourceUrl("");
+  };
+
+
   // RBAC Guard: If logged in as analyst
   if (role && role !== "admin") {
     return (
@@ -286,18 +358,27 @@ export default function AdminUsersPage() {
                 </p>
               </div>
 
-              {/* Action Button */}
-              <button
-                onClick={() => {
-                  setGeneratedPassword(null);
-                  setPasswordNoticeUser(null);
-                  setShowModal(true);
-                }}
-                className="px-4 py-2 bg-signal-green/10 border border-signal-green text-signal-green hover:bg-signal-green hover:text-bg-void transition-colors text-xs font-bold tracking-wider flex items-center gap-2"
-              >
-                <span>+</span>
-                <span>PROVISION NEW ACCOUNT</span>
-              </button>
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <button
+                  onClick={() => {
+                    setGeneratedPassword(null);
+                    setPasswordNoticeUser(null);
+                    setShowModal(true);
+                  }}
+                  className="px-4 py-2 bg-signal-green/10 border border-signal-green text-signal-green hover:bg-signal-green hover:text-bg-void transition-colors text-xs font-bold tracking-wider flex items-center gap-2"
+                >
+                  <span>+</span>
+                  <span>PROVISION NEW ACCOUNT</span>
+                </button>
+                <button
+                  onClick={() => setShowMospiModal(true)}
+                  className="px-4 py-2 bg-accent-amber/10 border border-accent-amber text-accent-amber hover:bg-accent-amber hover:text-bg-void transition-colors text-xs font-bold tracking-wider flex items-center gap-2"
+                >
+                  <span>◆</span>
+                  <span>MOSPI BENCHMARK ENTRY</span>
+                </button>
+              </div>
             </div>
 
             {/* Notification Banner */}
@@ -795,6 +876,165 @@ export default function AdminUsersPage() {
                     className="px-4 py-1.5 bg-signal-green/20 border border-signal-green text-signal-green hover:bg-signal-green hover:text-bg-void transition-colors text-xs font-bold disabled:opacity-50"
                   >
                     {provisioning ? "PROVISIONING..." : "GENERATE CREDENTIALS"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MoSPI Benchmark Data Entry Modal */}
+      {showMospiModal && (
+        <div className="fixed inset-0 z-50 bg-bg-void/80 backdrop-blur-sm flex items-center justify-center p-4 font-mono">
+          <div className="max-w-lg w-full border border-accent-amber/40 bg-panel p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <h2 className="text-sm font-bold text-text-primary flex items-center gap-2">
+                <span className="text-accent-amber">◆</span>
+                <span>{mospiSuccess ? "BENCHMARK RECORDED" : "MOSPI CPI BENCHMARK ENTRY"}</span>
+              </h2>
+              <button
+                onClick={resetMospiModal}
+                className="text-text-dim hover:text-text-primary text-xs"
+              >
+                ✕ CLOSE
+              </button>
+            </div>
+
+            {mospiSuccess ? (
+              <div className="space-y-4">
+                <div className="p-3 bg-signal-green/10 border border-signal-green/30 text-signal-green text-xs">
+                  {mospiSuccess.message}
+                </div>
+
+                {mospiSuccess.overlap_detected && mospiSuccess.overlap_message && (
+                  <div className="p-3 bg-accent-amber/10 border border-accent-amber/30 text-accent-amber text-xs">
+                    <div className="font-bold mb-1">CALENDAR OVERLAP DETECTED</div>
+                    <div>{mospiSuccess.overlap_message}</div>
+                  </div>
+                )}
+
+                <div className="p-3 border border-line bg-bg-void/60 text-[11px] text-text-dim space-y-1 font-sans">
+                  <div className="font-mono text-accent-amber font-bold">PROVENANCE AUDIT:</div>
+                  <div>This benchmark data point has been persisted with full provenance metadata (source document, publication date, and source URL). It will be used in the MoSPI calendar overlap analysis on the dashboard backtest.</div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2 border-t border-line">
+                  <button
+                    onClick={resetMospiModal}
+                    className="px-3 py-1.5 text-xs text-text-dim hover:text-text-primary"
+                  >
+                    CLOSE
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMospiSuccess(null);
+                      setMospiError(null);
+                    }}
+                    className="px-4 py-1.5 bg-accent-amber/20 border border-accent-amber text-accent-amber hover:bg-accent-amber hover:text-bg-void transition-colors text-xs font-bold"
+                  >
+                    ENTER ANOTHER
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleMospiSubmit} className="space-y-3">
+                {mospiError && (
+                  <div className="p-2.5 bg-alert/10 border border-alert/30 text-alert text-xs">
+                    {mospiError}
+                  </div>
+                )}
+
+                <div className="p-2.5 bg-accent-amber/5 border border-accent-amber/20 text-[11px] text-text-dim">
+                  <span className="font-bold text-accent-amber">MoSPI CPI Div 07.3</span> — Passenger transport services (All-India, Base 2024=100). All fields are mandatory for provenance integrity.
+                </div>
+
+                <div>
+                  <label className="block text-[11px] text-text-dim mb-1">
+                    REFERENCE MONTH (YYYY-MM) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={mospiMonth}
+                    onChange={(e) => setMospiMonth(e.target.value)}
+                    placeholder="e.g. 2026-09"
+                    pattern="\d{4}-\d{2}"
+                    className="w-full bg-bg-void border border-line px-3 py-1.5 text-xs text-text-primary focus:border-accent-amber focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] text-text-dim mb-1">
+                    CPI INDEX VALUE *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    step="0.01"
+                    min="0.01"
+                    value={mospiCpiIndex}
+                    onChange={(e) => setMospiCpiIndex(e.target.value)}
+                    placeholder="e.g. 103.50"
+                    className="w-full bg-bg-void border border-line px-3 py-1.5 text-xs text-text-primary focus:border-accent-amber focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] text-text-dim mb-1">
+                    SOURCE DOCUMENT *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={mospiSourceDoc}
+                    onChange={(e) => setMospiSourceDoc(e.target.value)}
+                    placeholder="e.g. MoSPI CPI Press Release — September 2026"
+                    className="w-full bg-bg-void border border-line px-3 py-1.5 text-xs text-text-primary focus:border-accent-amber focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] text-text-dim mb-1">
+                    PUBLICATION DATE *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={mospiPubDate}
+                    onChange={(e) => setMospiPubDate(e.target.value)}
+                    className="w-full bg-bg-void border border-line px-3 py-1.5 text-xs text-text-primary focus:border-accent-amber focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] text-text-dim mb-1">
+                    SOURCE URL *
+                  </label>
+                  <input
+                    type="url"
+                    required
+                    value={mospiSourceUrl}
+                    onChange={(e) => setMospiSourceUrl(e.target.value)}
+                    placeholder="e.g. https://mospi.gov.in/publication/cpi"
+                    className="w-full bg-bg-void border border-line px-3 py-1.5 text-xs text-text-primary focus:border-accent-amber focus:outline-none"
+                  />
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-3 border-t border-line">
+                  <button
+                    type="button"
+                    onClick={resetMospiModal}
+                    className="px-3 py-1.5 text-xs text-text-dim hover:text-text-primary"
+                  >
+                    CANCEL
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={mospiSubmitting}
+                    className="px-4 py-1.5 bg-accent-amber/20 border border-accent-amber text-accent-amber hover:bg-accent-amber hover:text-bg-void transition-colors text-xs font-bold disabled:opacity-50"
+                  >
+                    {mospiSubmitting ? "SUBMITTING..." : "RECORD BENCHMARK"}
                   </button>
                 </div>
               </form>
