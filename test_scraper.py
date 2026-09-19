@@ -1,7 +1,7 @@
 import sys
 import datetime as dt
 import os
-sys.path.append("c:\\Users\\PAWAN\\OneDrive\\Pictures\\Screenshots\\myproject")
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from backend.app.scraper.sources.indigo import IndiGoScraper
 from backend.app.scraper.sources.akasa import AkasaScraper

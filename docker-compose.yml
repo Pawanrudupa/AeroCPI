@@ -7,7 +7,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: aerocpi_user
-      POSTGRES_PASSWORD: aerocpi_secret_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aerocpi_secret_password}
       POSTGRES_DB: aerocpi_db
     ports:
       - "5432:5432"
@@ -26,8 +26,8 @@ services:
     container_name: aerocpi_backend
     restart: always
     environment:
-      DATABASE_URL: postgresql://aerocpi_user:aerocpi_secret_password@postgres:5432/aerocpi_db
-      JWT_SECRET: aerocpi_production_jwt_secret_key_change_me_2026
+      DATABASE_URL: postgresql://aerocpi_user:${POSTGRES_PASSWORD:-aerocpi_secret_password}@postgres:5432/aerocpi_db
+      JWT_SECRET: ${JWT_SECRET:-aerocpi_dev_jwt_secret_key_change_me_2026}
       JWT_ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 1440
       SEED_ANALYST_EMAIL: demo.analyst@aerocpi.local

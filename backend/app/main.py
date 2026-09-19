@@ -558,12 +558,30 @@ def get_materiality_gap(session: Session = Depends(get_session)):
     max_divergent = sorted_by_abs[0] if sorted_by_abs else None
     min_divergent = sorted_by_abs[-1] if sorted_by_abs else None
 
+    # Determine calendar period dynamically from observation dates
+    obs_dates = []
+    for f in fares:
+        if f.scraped_at and hasattr(f.scraped_at, "date"):
+            obs_dates.append(f.scraped_at.date())
+        elif f.departure_date:
+            obs_dates.append(f.departure_date)
+
+    if obs_dates:
+        min_d = min(obs_dates)
+        max_d = max(obs_dates)
+        if min_d.year == max_d.year and min_d.month == max_d.month:
+            calendar_period = min_d.strftime("%B %Y")
+        else:
+            calendar_period = f"{min_d.strftime('%b %Y')} - {max_d.strftime('%b %Y')}"
+    else:
+        calendar_period = "All Observations"
+
     return {
         "methodology": {
             "snapshot_rule": "First chronological observation of calendar month per route per advance window",
             "continuous_rule": "Time-weighted daily average fare per route per advance window, then averaged across windows (T+7, T+15, T+30)",
             "formula": "Per window: ((snapshot_fare - continuous_avg) / continuous_avg) * 100; route divergence = mean across windows",
-            "calendar_period": "September 2026"
+            "calendar_period": calendar_period
         },
         "provenance": {
             "total_quotes": total_quotes,
@@ -571,7 +589,10 @@ def get_materiality_gap(session: Session = Depends(get_session)):
             "seeded_quotes": seeded_quotes,
             "live_pct": live_pct,
             "seeded_pct": seeded_pct,
-            "disclosure": "Preliminary baseline computed over a hybrid dataset (13.2% live SerpAPI captures / 86.8% calibrated seeded quotes). Live fraction will expand continuously as daily automated pipelines ingest further cycles."
+            "disclosure": (
+                f"Preliminary baseline computed over a hybrid dataset ({live_pct}% live SerpAPI captures / "
+                f"{seeded_pct}% calibrated seeded quotes). Live fraction will expand continuously as daily automated pipelines ingest further cycles."
+            )
         },
         "basket_summary": {
             "mean_absolute_divergence_pct": basket_mean_abs_divergence,
@@ -819,9 +840,13 @@ def get_raw_fares(
     if source_type and source_type.lower() != "all":
         query = query.where(FareQuote.source_type == source_type.lower())
 
+    from sqlalchemy import func
+    total_in_db = session.exec(select(func.count(FareQuote.id))).one()
+
     quotes = session.exec(query.limit(limit)).all()
     return {
         "count": len(quotes),
+        "total_count": total_in_db,
         "quotes": quotes
     }
 

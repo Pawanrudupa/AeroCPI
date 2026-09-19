@@ -24,6 +24,8 @@ export default function DashboardPage() {
   const { token } = useAuth();
 
   const [quotes, setQuotes] = useState<DisplayQuote[]>([]);
+  const [totalQuotes, setTotalQuotes] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [indexSummary, setIndexSummary] = useState<{
     latest: number | null;
     change: string;
@@ -58,6 +60,7 @@ export default function DashboardPage() {
       try {
         /* Fetch raw fares */
         const faresRes = await api.rawFares(t, { limit: 100 });
+        setTotalQuotes(faresRes.total_count ?? faresRes.quotes.length);
         const mapped: DisplayQuote[] = faresRes.quotes.map((q) => ({
           id: q.id,
           route: q.route,
@@ -75,7 +78,7 @@ export default function DashboardPage() {
         }));
         setQuotes(mapped);
       } catch {
-        /* API may be offline — leave empty, charts render defaults */
+        setLoadError("Unable to retrieve live fare telemetry. Some metrics may be offline.");
       }
 
       try {
@@ -127,6 +130,19 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      {/* Informational Load Warning */}
+      {loadError && (
+        <div className="border border-accent-amber/30 bg-accent-amber/10 text-accent-amber px-4 py-2.5 font-mono text-xs flex items-center justify-between rounded-xs">
+          <span>NOTICE :: {loadError}</span>
+          <button
+            onClick={() => setLoadError(null)}
+            className="underline hover:text-text-primary text-[10px] ml-4 cursor-pointer"
+          >
+            [DISMISS]
+          </button>
+        </div>
+      )}
+
       {/* Summary Metrics Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-mono">
         <div className="border border-line bg-panel p-4">
@@ -195,7 +211,7 @@ export default function DashboardPage() {
             QUOTE RECORDS
           </span>
           <span className="text-xl md:text-2xl font-bold text-text-primary">
-            {quotes.length}
+            {totalQuotes !== null ? totalQuotes.toLocaleString() : quotes.length.toLocaleString()}
           </span>
           <span className="text-[10px] text-text-dim block">
             CAPTURED FARES

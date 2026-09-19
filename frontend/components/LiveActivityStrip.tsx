@@ -1,37 +1,35 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-
-interface ActivityItem {
-  timestamp: string;
-  route: string;
-  window: string;
-  source: string;
-  status: string;
-}
+import { api, type PublicActivityItem } from "@/lib/api";
 
 export function LiveActivityStrip() {
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [activities, setActivities] = useState<PublicActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
     const fetchActivity = async () => {
       try {
-        const res = await fetch("http://localhost:8000/public/activity-summary");
-        if (res.ok) {
-          const data = await res.json();
+        const data = await api.publicActivitySummary();
+        if (isMounted) {
           setActivities(data.recent_activity || []);
         }
       } catch (err) {
-        console.error("Failed to fetch public activity summary", err);
+        // Silently handle offline/error state; loading will clear
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
     fetchActivity();
     // Refresh every 60 seconds
     const intervalId = setInterval(fetchActivity, 60000);
-    return () => clearInterval(intervalId);
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
   }, []);
 
   if (loading) {

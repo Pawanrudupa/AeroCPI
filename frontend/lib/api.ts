@@ -117,7 +117,22 @@ export interface FareQuoteRecord {
 
 export interface FaresResponse {
   count: number;
+  total_count?: number;
   quotes: FareQuoteRecord[];
+}
+
+export interface PublicActivityItem {
+  timestamp: string;
+  route: string;
+  window: string;
+  source: string;
+  status: string;
+}
+
+export interface PublicActivitySummaryResponse {
+  last_updated: string;
+  current_index_value: number;
+  recent_activity: PublicActivityItem[];
 }
 
 export interface IndexWeeklyRecord {
@@ -539,6 +554,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
+  /* Public Activity Summary */
+  publicActivitySummary: () =>
+    apiFetch<PublicActivitySummaryResponse>("/public/activity-summary", null),
 };
 
 export interface TokenResponse {

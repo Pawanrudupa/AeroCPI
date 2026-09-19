@@ -29,18 +29,6 @@ interface LiveTrendChartProps {
 
 export type Frequency = "daily" | "weekly" | "monthly";
 
-const DEFAULT_DATA: TrendPoint[] = [
-  { date: "2026-07-01", aerocpi: 100.0, mospi: null },
-  { date: "2026-07-08", aerocpi: 101.4, mospi: null },
-  { date: "2026-07-15", aerocpi: 102.1, mospi: null },
-  { date: "2026-07-22", aerocpi: 102.8, mospi: null },
-  { date: "2026-08-01", aerocpi: 103.5, mospi: null },
-  { date: "2026-08-08", aerocpi: 104.2, mospi: null },
-  { date: "2026-08-15", aerocpi: 104.8, mospi: null },
-  { date: "2026-08-22", aerocpi: 105.3, mospi: null },
-  { date: "2026-09-01", aerocpi: 105.9, mospi: null },
-];
-
 export const LiveTrendChart: React.FC<LiveTrendChartProps> = ({
   token,
   data: propData,
@@ -48,13 +36,15 @@ export const LiveTrendChart: React.FC<LiveTrendChartProps> = ({
   trackingError = null,
 }) => {
   const [frequency, setFrequency] = useState<Frequency>("daily");
-  const [chartData, setChartData] = useState<TrendPoint[]>(propData || DEFAULT_DATA);
+  const [chartData, setChartData] = useState<TrendPoint[]>(propData || []);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useEffect(() => {
     if (!token) {
       if (propData && propData.length > 0) {
         setChartData(propData);
+      } else {
+        setChartData([]);
       }
       return;
     }
@@ -65,38 +55,52 @@ export const LiveTrendChart: React.FC<LiveTrendChartProps> = ({
       try {
         if (frequency === "daily") {
           const res = await api.dailyIndex(token!);
-          if (res.data && res.data.length > 0 && isMounted) {
-            const mapped: TrendPoint[] = res.data.map((r) => ({
-              date: r.date,
-              aerocpi: r.index_value,
-              mospi: null,
-              hasSeeded: r.has_seeded_data,
-            }));
-            setChartData(mapped);
+          if (isMounted) {
+            if (res.data && res.data.length > 0) {
+              const mapped: TrendPoint[] = res.data.map((r) => ({
+                date: r.date,
+                aerocpi: r.index_value,
+                mospi: null,
+                hasSeeded: r.has_seeded_data,
+              }));
+              setChartData(mapped);
+            } else {
+              setChartData([]);
+            }
           }
         } else if (frequency === "weekly") {
           const res = await api.weeklyIndex(token!);
-          if (res.data && res.data.length > 0 && isMounted) {
-            const mapped: TrendPoint[] = res.data.map((r) => ({
-              date: r.period,
-              aerocpi: r.index_value,
-              mospi: null,
-            }));
-            setChartData(mapped);
+          if (isMounted) {
+            if (res.data && res.data.length > 0) {
+              const mapped: TrendPoint[] = res.data.map((r) => ({
+                date: r.period,
+                aerocpi: r.index_value,
+                mospi: null,
+              }));
+              setChartData(mapped);
+            } else {
+              setChartData([]);
+            }
           }
         } else if (frequency === "monthly") {
           const res = await api.monthlyIndex(token!);
-          if (res.data && res.data.length > 0 && isMounted) {
-            const mapped: TrendPoint[] = res.data.map((r) => ({
-              date: r.period,
-              aerocpi: r.index_value,
-              mospi: r.mospi_cpi ?? null,
-            }));
-            setChartData(mapped);
+          if (isMounted) {
+            if (res.data && res.data.length > 0) {
+              const mapped: TrendPoint[] = res.data.map((r) => ({
+                date: r.period,
+                aerocpi: r.index_value,
+                mospi: r.mospi_cpi ?? null,
+              }));
+              setChartData(mapped);
+            } else {
+              setChartData([]);
+            }
           }
         }
       } catch (err) {
-        console.warn("Failed to fetch index series:", frequency, err);
+        if (isMounted) {
+          setChartData([]);
+        }
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -121,9 +125,6 @@ export const LiveTrendChart: React.FC<LiveTrendChartProps> = ({
         const mIdx = parseInt(parts[1], 10) - 1;
         const monthName = months[mIdx] || parts[1];
         const yr = parts[0].slice(2);
-        if (parts[1] === "10" && parts[0] === "2026") {
-          return `${monthName} '${yr} (T+30)`;
-        }
         return `${monthName} '${yr}`;
       }
       return val;
@@ -194,50 +195,60 @@ export const LiveTrendChart: React.FC<LiveTrendChartProps> = ({
         </div>
       </div>
 
-      <div className="h-[280px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-            <CartesianGrid stroke="#262316" strokeDasharray="3 3" vertical={false} />
-            <XAxis
-              dataKey="date"
-              stroke="#8A8672"
-              fontSize={11}
-              fontFamily="JetBrains Mono"
-              tickLine={false}
-              tickFormatter={formatXAxisTick}
-            />
-            <YAxis
-              stroke="#8A8672"
-              fontSize={11}
-              fontFamily="JetBrains Mono"
-              domain={["dataMin - 2", "dataMax + 2"]}
-              tickLine={false}
-              axisLine={false}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "#12120C",
-                borderColor: "#262316",
-                color: "#E8E4D4",
-                fontFamily: "JetBrains Mono",
-                fontSize: "12px",
-              }}
-              formatter={(value: any, name: string) => [
-                value !== null ? Number(value).toFixed(2) : "N/A",
-                name === "aerocpi"
-                  ? frequency === "daily"
-                    ? "AeroCPI (Daily GEKS)"
-                    : frequency === "weekly"
-                    ? "AeroCPI (Weekly Rollup)"
-                    : "AeroCPI (Monthly Rollup)"
-                  : "MoSPI Div 07.3",
-              ]}
-              labelFormatter={(label) =>
-                frequency === "monthly"
-                  ? `Travel Month: ${label}${label === "2026-10" ? " (Forward T+30 Window)" : ""}`
-                  : `Period: ${label}`
-              }
-            />
+      <div className="h-[280px] w-full relative">
+        {isLoading && (
+          <div className="absolute inset-0 bg-[#12120C]/80 backdrop-blur-[1px] flex items-center justify-center z-10 font-mono text-xs text-accent-amber animate-pulse">
+            LOADING {frequency.toUpperCase()} INDEX SERIES...
+          </div>
+        )}
+        {!isLoading && chartData.length === 0 ? (
+          <div className="h-full flex items-center justify-center border border-dashed border-line text-text-dim font-mono text-xs">
+            AWAITING INDEX TELEMETRY FOR {frequency.toUpperCase()} SERIES
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke="#262316" strokeDasharray="3 3" vertical={false} />
+              <XAxis
+                dataKey="date"
+                stroke="#8A8672"
+                fontSize={11}
+                fontFamily="JetBrains Mono"
+                tickLine={false}
+                tickFormatter={formatXAxisTick}
+              />
+              <YAxis
+                stroke="#8A8672"
+                fontSize={11}
+                fontFamily="JetBrains Mono"
+                domain={["dataMin - 2", "dataMax + 2"]}
+                tickLine={false}
+                axisLine={false}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#12120C",
+                  borderColor: "#262316",
+                  color: "#E8E4D4",
+                  fontFamily: "JetBrains Mono",
+                  fontSize: "12px",
+                }}
+                formatter={(value: any, name: string) => [
+                  value !== null ? Number(value).toFixed(2) : "N/A",
+                  name === "aerocpi"
+                    ? frequency === "daily"
+                      ? "AeroCPI (Daily GEKS)"
+                      : frequency === "weekly"
+                      ? "AeroCPI (Weekly Rollup)"
+                      : "AeroCPI (Monthly Rollup)"
+                    : "MoSPI Div 07.3",
+                ]}
+                labelFormatter={(label) =>
+                  frequency === "monthly"
+                    ? `Observation Month: ${label}`
+                    : `Period: ${label}`
+                }
+              />
             <Legend
               wrapperStyle={{ fontFamily: "JetBrains Mono", fontSize: "11px", paddingTop: "10px" }}
               formatter={(val) =>
@@ -271,7 +282,8 @@ export const LiveTrendChart: React.FC<LiveTrendChartProps> = ({
             )}
           </LineChart>
         </ResponsiveContainer>
-      </div>
+      )}
+    </div>
 
       <div className="mt-3 pt-3 border-t border-line text-xs font-mono text-text-dim flex flex-wrap justify-between items-center gap-2">
         <span>METHOD: {methodLabel}</span>

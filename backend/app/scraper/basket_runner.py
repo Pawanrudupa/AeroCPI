@@ -8,7 +8,7 @@ Implements:
 - User Requirement: Tag every quote with exact source_type ("live" vs "seeded")
 """
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from sqlmodel import Session
 from backend.app.scraper.sources.indigo import IndiGoScraper
 from backend.app.scraper.sources.akasa import AkasaScraper

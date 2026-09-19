@@ -13,6 +13,7 @@ from backend.app.scraper.sources.akasa import AkasaScraper
 from backend.app.scraper.sources.easemytrip import EaseMyTripScraper
 from backend.app.scraper.sources.cleartrip import CleartripScraper
 from backend.app.scraper.engine import run_pipeline_for_route
+from backend.app.scraper.sources.base import BaseScraper
 
 
 @pytest.fixture(name="session")
@@ -21,6 +22,20 @@ def session_fixture():
     create_db_and_tables(engine)
     with Session(engine) as session:
         yield session
+
+
+@pytest.fixture(autouse=True)
+def fast_scraper_execution(monkeypatch):
+    """Bypass random delays and simulate offline execution for fast, deterministic unit testing."""
+    monkeypatch.setattr(BaseScraper, "polite_delay", lambda self, *args, **kwargs: None)
+    
+    def mock_offline_browser(*args, **kwargs):
+        raise RuntimeError("Fast offline unit test mode")
+
+    monkeypatch.setattr("backend.app.scraper.sources.akasa.sync_playwright", mock_offline_browser)
+    monkeypatch.setattr("backend.app.scraper.sources.easemytrip.sync_playwright", mock_offline_browser)
+    monkeypatch.setattr("backend.app.scraper.sources.indigo.sync_playwright", mock_offline_browser)
+    monkeypatch.setattr("httpx.Client.get", mock_offline_browser)
 
 
 def test_akasa_and_ota_scrapers(session: Session):

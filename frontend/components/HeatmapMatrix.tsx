@@ -21,6 +21,7 @@ export const HeatmapMatrix: React.FC = () => {
   const { surgeFilterActive, pipelineEvents } = useDashboard();
   const [data, setData] = useState<HeatmapCell[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Track any new surges that happen during a live pipeline run
   const liveSurgedRoutes = new Set(
@@ -31,24 +32,35 @@ export const HeatmapMatrix: React.FC = () => {
 
   useEffect(() => {
     if (!token) return;
+    let isMounted = true;
     async function loadData() {
       try {
         setIsLoading(true);
+        setError(null);
         const res = await api.surgeStatus(token!);
-        const mapped = res.surges.map((s: any) => ({
-          route: s.route,
-          window: s.window,
-          avgFare: s.current_avg,
-          surge: s.is_surge
-        }));
-        setData(mapped);
+        if (isMounted) {
+          const mapped = res.surges.map((s) => ({
+            route: s.route,
+            window: s.window,
+            avgFare: s.current_avg,
+            surge: s.is_surge
+          }));
+          setData(mapped);
+        }
       } catch (err) {
-        console.error("Failed to load heatmap data", err);
+        if (isMounted) {
+          setError("Unable to load surge telemetry matrix");
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     }
     loadData();
+    return () => {
+      isMounted = false;
+    };
   }, [token]);
 
   const getCellColor = (fare: number, surge: boolean) => {
@@ -73,7 +85,11 @@ export const HeatmapMatrix: React.FC = () => {
       </div>
 
       <div className="overflow-x-auto min-h-[250px]">
-        {isLoading ? (
+        {error ? (
+          <div className="flex items-center justify-center h-[200px] border border-dashed border-line">
+            <span className="font-mono text-xs text-accent-amber">NOTICE :: {error}</span>
+          </div>
+        ) : isLoading ? (
           <div className="flex items-center justify-center h-[200px]">
             <span className="font-mono text-xs text-text-dim animate-pulse">LOADING HEATMAP DATA...</span>
           </div>
@@ -100,6 +116,7 @@ export const HeatmapMatrix: React.FC = () => {
                     <td className="py-2.5 px-3 font-semibold text-text-primary">
                       <Link
                         href={`/dashboard/route/${route}`}
+                        aria-label={`View detailed price index for ${route}`}
                         className={`transition-colors ${isDimmed ? 'text-text-dim' : 'hover:text-accent-amber hover:underline'}`}
                       >
                         {route} →
