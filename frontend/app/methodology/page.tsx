@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { api, API_BASE, type MaterialityGapResponse } from "@/lib/api";
 import { DotGridSpotlight } from "@/components/DotGridSpotlight";
+import { AeroCPILogo } from "@/components/AeroCPILogo";
 
 export default function MethodologyPage() {
   const { isAuthenticated, userEmail, role, logout } = useAuth();
@@ -48,9 +49,10 @@ export default function MethodologyPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="text-accent-amber font-bold tracking-wider hover:underline flex-shrink-0 whitespace-nowrap"
+              className="text-accent-amber font-bold tracking-wider hover:underline flex-shrink-0 whitespace-nowrap flex items-center gap-2"
             >
-              [ AeroCPI ]
+              <AeroCPILogo size="sm" animated={true} effect="radar" />
+              <span>[ AeroCPI ]</span>
             </Link>
 
             <span className="hidden sm:inline text-text-dim">|</span>

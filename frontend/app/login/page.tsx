@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { RadarBackground } from "@/components/RadarBackground";
+import { AeroCPILogo } from "@/components/AeroCPILogo";
 
 /**
  * /login — Terminal-HUD styled authentication page.
@@ -66,6 +67,10 @@ export default function LoginPage() {
           >
             ← BACK TO LANDING
           </Link>
+
+          <div className="flex justify-center pt-2">
+            <AeroCPILogo size="lg" animated={true} effect="radar" />
+          </div>
 
           <h1 className="text-2xl md:text-3xl font-bold font-mono text-text-primary">
             [ TERMINAL AUTH ]

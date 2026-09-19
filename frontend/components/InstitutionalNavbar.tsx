@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { API_BASE } from "@/lib/api";
+import { AeroCPILogo } from "@/components/AeroCPILogo";
 
 export function InstitutionalNavbar() {
   const { isAuthenticated, userEmail, role, logout } = useAuth();
@@ -30,8 +31,9 @@ export function InstitutionalNavbar() {
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
-            className="text-accent-amber font-bold tracking-wider hover:underline flex-shrink-0 whitespace-nowrap"
+            className="text-accent-amber font-bold tracking-wider hover:underline flex-shrink-0 whitespace-nowrap flex items-center gap-2"
           >
+            <AeroCPILogo size="sm" animated={true} effect="radar" />
             <h1 className="inline m-0 text-inherit text-xs font-bold">[ AeroCPI TERMINAL ]</h1>
           </Link>
 

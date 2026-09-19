@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { RadarBackground } from "@/components/RadarBackground";
+import { AeroCPILogo } from "@/components/AeroCPILogo";
 
 /**
  * /signup — Terminal-HUD styled self-service VIEWER registration page.
@@ -83,6 +84,10 @@ export default function SignupPage() {
           >
             ← BACK TO TERMINAL LOGIN
           </Link>
+
+          <div className="flex justify-center pt-2">
+            <AeroCPILogo size="lg" animated={true} effect="radar" />
+          </div>
 
           <h1 className="text-2xl md:text-3xl font-bold text-text-primary tracking-tight">
             [ VIEWER SIGNUP ]

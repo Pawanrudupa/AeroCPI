@@ -10,6 +10,7 @@ import { CommandBar } from "@/components/CommandBar";
 import { SurgeToast } from "@/components/SurgeToast";
 import { HeaderActions } from "@/components/HeaderActions";
 import { DotGridSpotlight } from "@/components/DotGridSpotlight";
+import { AeroCPILogo } from "@/components/AeroCPILogo";
 
 /**
  * Dashboard layout — wraps all /dashboard/* routes.
@@ -74,8 +75,9 @@ export default function DashboardLayout({
               <div className="flex items-center gap-3">
                 <Link
                   href="/dashboard"
-                  className="text-accent-amber font-bold tracking-wider hover:underline flex-shrink-0 whitespace-nowrap"
+                  className="text-accent-amber font-bold tracking-wider hover:underline flex-shrink-0 whitespace-nowrap flex items-center gap-2"
                 >
+                  <AeroCPILogo size="sm" animated={true} effect="radar" />
                   <h1 className="inline m-0 text-inherit text-xs font-bold">[ AeroCPI TERMINAL ]</h1>
                 </Link>
 

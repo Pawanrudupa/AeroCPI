@@ -9,6 +9,7 @@ import { LiveActivityStrip } from "@/components/LiveActivityStrip";
 import { TooltipGlossary } from "@/components/TooltipGlossary";
 import { HoverExpandCard } from "@/components/HoverExpandCard";
 import { MaterialityGapSection } from "@/components/MaterialityGapSection";
+import { AeroCPILogo } from "@/components/AeroCPILogo";
 
 /**
  * Landing page — marketing/context only.
@@ -36,6 +37,7 @@ export default function LandingPage() {
         <header className="border-b border-line bg-panel/90 backdrop-blur-md px-4 md:px-8 py-2.5 sticky top-0 z-50 font-mono text-xs">
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
+              <AeroCPILogo size="sm" animated={true} effect="radar" />
               <span className="text-accent-amber font-bold">[ AeroCPI ]</span>
               <span className="hidden sm:inline text-text-dim">|</span>
               <span className="hidden sm:inline text-text-dim text-[11px]">HIGH-FREQUENCY AIRFARE PRICE INDEX</span>
