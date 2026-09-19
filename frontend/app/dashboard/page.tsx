@@ -148,27 +148,29 @@ export default function DashboardPage() {
           </span>
           <span
             className={`text-xl md:text-2xl font-bold ${
-              backtestSummary.overlappingPoints >= 2
+              backtestSummary.overlappingPoints >= 3 && backtestSummary.correlation !== null
                 ? "text-signal-green"
-                : backtestSummary.overlappingPoints === 1
+                : backtestSummary.overlappingPoints >= 1
                 ? "text-accent-amber"
                 : "text-accent-amber"
             }`}
           >
-            {backtestSummary.overlappingPoints >= 2 && backtestSummary.correlation !== null
+            {backtestSummary.overlappingPoints >= 3 && backtestSummary.correlation !== null
               ? `r: ${backtestSummary.correlation.toFixed(3)}`
-              : backtestSummary.overlappingPoints === 1
-              ? "ACTIVE (1 MO)"
+              : backtestSummary.overlappingPoints >= 1
+              ? `ACTIVE (${backtestSummary.overlappingPoints} MO)`
               : "PENDING"}
           </span>
           <span
             className="text-[10px] text-text-dim block truncate cursor-help"
             title={backtestSummary.overlapMessage}
           >
-            {backtestSummary.overlappingPoints >= 2
+            {backtestSummary.overlappingPoints >= 3
               ? `RMSE: ${backtestSummary.trackingError?.toFixed(2) ?? "—"}`
-              : backtestSummary.overlappingPoints === 1
-              ? "See tooltip for divergence"
+              : backtestSummary.overlappingPoints >= 1
+              ? backtestSummary.trackingError !== null
+                ? `RMSE: ${backtestSummary.trackingError.toFixed(2)} (r needs 3+ mo)`
+                : "Divergence only — see tooltip"
               : "AWAITING RELEASE"}
           </span>
           

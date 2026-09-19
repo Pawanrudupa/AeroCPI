@@ -70,10 +70,14 @@ def test_dgca_ingestion_and_backtest(session: Session):
     backtest = compute_backtest_metrics(session)
     assert backtest["status"] == "success"
     assert len(backtest["series"]) >= 2
-    assert backtest["correlation"] is not None
+    # 2 overlapping points: correlation suppressed (2-point r is always +/-1.000)
+    assert backtest["correlation"] is None
+    # RMSE is still meaningful with 2 points
+    assert backtest["tracking_error"] is not None
     assert backtest["overlap_detected"] is True
     assert backtest["overlapping_points"] == 2
-    assert "MoSPI calendar overlap active" in backtest["overlap_message"]
+    assert "2 calendar overlap point(s)" in backtest["overlap_message"]
+    assert "r requires >= 3 months" in backtest["overlap_message"]
 
 def test_backtest_overlap_detection(session: Session):
     from backend.app.models import MospiBenchmark
@@ -94,7 +98,8 @@ def test_backtest_overlap_detection(session: Session):
     bt1 = compute_backtest_metrics(session)
     assert bt1["overlap_detected"] is True
     assert bt1["overlapping_points"] == 1
-    assert "Single calendar overlap point" in bt1["overlap_message"]
+    assert "1 calendar overlap point(s)" in bt1["overlap_message"]
+    assert "r requires >= 3 months" in bt1["overlap_message"]
     assert bt1["correlation"] is None
     
     # Insert non-overlapping MoSPI point
@@ -112,13 +117,35 @@ def test_backtest_overlap_detection(session: Session):
     # The overlapping points remain 1, but we have 2 mospi points
     assert bt2["overlapping_points"] == 1
     
-    # Add a second overlapping point
+    # Add a second overlapping point (index for 2026-01)
     d2 = dt.date(2026, 1, 15)
     session.add(IndexDaily(date=d2, index_value=100.0, base_period=d2, method="GEKS-Törnqvist"))
     session.commit()
     
     bt3 = compute_backtest_metrics(session)
     assert bt3["overlapping_points"] == 2
-    assert "MoSPI calendar overlap active" in bt3["overlap_message"]
-    assert bt3["correlation"] is not None
-
+    # 2 points: still no correlation (r with 2 points is always +/-1.000)
+    assert bt3["correlation"] is None
+    assert bt3["tracking_error"] is not None  # RMSE is valid with 2 points
+    assert "2 calendar overlap point(s)" in bt3["overlap_message"]
+    assert "r requires >= 3 months" in bt3["overlap_message"]
+    
+    # Add a THIRD overlapping point — correlation should now be computed
+    d3 = dt.date(2026, 3, 15)
+    session.add(IndexDaily(date=d3, index_value=102.5, base_period=d2, method="GEKS-Törnqvist"))
+    session.add(MospiBenchmark(
+        month="2026-03",
+        cpi_index=101.0,
+        sector="Combined",
+        source_document="MoSPI",
+        publication_date="2026-04-12",
+        source_url="http://pib.gov.in"
+    ))
+    session.commit()
+    
+    bt4 = compute_backtest_metrics(session)
+    assert bt4["overlapping_points"] == 3
+    assert bt4["correlation"] is not None
+    assert bt4["tracking_error"] is not None
+    assert "MoSPI calendar overlap active (3 months)" in bt4["overlap_message"]
+    assert "Pearson r =" in bt4["overlap_message"]

@@ -86,18 +86,27 @@ def compute_backtest_metrics(session: Session) -> Dict[str, Any]:
         })
 
     # Statistical metrics
+    # NOTE: Pearson r requires >= 3 overlapping points, NOT 2.
+    # With exactly 2 points, r is always +/-1.000 (a straight line trivially
+    # fits any two points), so reporting it would be technically un-fabricated
+    # but functionally misleading — the same class of problem as the original
+    # hardcoded 0.942.  RMSE is still computed for >= 2 points since it is a
+    # meaningful per-point distance metric even with a small sample.
     correlation = None
     tracking_error = None
     if len(aerocpi_vals) >= 2 and len(mospi_vals) >= 2:
         try:
             arr_aero = np.array(aerocpi_vals)
             arr_mospi = np.array(mospi_vals)
-            r = np.corrcoef(arr_aero, arr_mospi)[0, 1]
-            correlation = round(float(r), 4) if not math.isnan(r) else None
-            
-            # Root Mean Square Tracking Error
+
+            # RMSE is meaningful with any number of paired observations
             rmse = np.sqrt(np.mean((arr_aero - arr_mospi) ** 2))
             tracking_error = round(float(rmse), 2)
+
+            # Pearson r only meaningful with >= 3 points
+            if len(aerocpi_vals) >= 3:
+                r = np.corrcoef(arr_aero, arr_mospi)[0, 1]
+                correlation = round(float(r), 4) if not math.isnan(r) else None
         except Exception as e:
             logger.error(f"Error computing correlation: {e}")
 
@@ -112,12 +121,18 @@ def compute_backtest_metrics(session: Session) -> Dict[str, Any]:
     # Build descriptive overlap message
     if num_overlap == 0:
         overlap_message = "Awaiting MoSPI calendar overlap (0 months overlap with AeroCPI observation dates)."
-    elif num_overlap == 1:
-        div_val = series[next(i for i, s in enumerate(series) if s["month"] == overlapping_months[0])]["divergence"]
-        div_str = f"{div_val:+.2f}" if div_val is not None else "N/A"
+    elif num_overlap <= 2:
+        # 1 or 2 points: report divergence only. Pearson r with 2 points is
+        # always +/-1.000 (mathematical tautology, not a tracking signal).
+        divs = []
+        for m in overlapping_months:
+            entry = next(s for s in series if s["month"] == m)
+            d = entry["divergence"]
+            divs.append(f"{m}: {d:+.2f}" if d is not None else f"{m}: N/A")
         overlap_message = (
-            f"Single calendar overlap point ({overlapping_months[0]}). "
-            f"Divergence: {div_str}. Pearson r requires >= 2 months."
+            f"{num_overlap} calendar overlap point(s). "
+            f"Divergence: {'; '.join(divs)}. "
+            f"Pearson r requires >= 3 months (2-point r is always +/-1.000)."
         )
     else:
         r_str = f"{correlation:.4f}" if correlation is not None else "N/A"
