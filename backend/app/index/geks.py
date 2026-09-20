@@ -148,16 +148,22 @@ def calculate_and_save_daily_indices(
     base_date: Optional[dt.date] = None
 ) -> List[IndexDaily]:
     """
-    Extract all quotes from DB, calculate multilateral GEKS-Törnqvist indices,
+    Extract all LIVE quotes from DB, calculate multilateral GEKS-Törnqvist indices,
     and persist results to index_daily and index_route tables.
     Time-axis is bucketed by observation date (scraped_at), not departure date,
     aligning with standard CPI methodology (price at time of observation).
+
+    Only source_type='live' quotes are used — seeded/fallback data is excluded
+    to ensure the index reflects authentic market prices.
     """
     quotes = session.exec(
-        select(FareQuote).where(FareQuote.observation_status == "available")
+        select(FareQuote).where(
+            FareQuote.observation_status == "available",
+            FareQuote.source_type == "live"
+        )
     ).all()
     if not quotes:
-        logger.warning("No available fare quotes found in DB to compute index.")
+        logger.warning("No available LIVE fare quotes found in DB to compute index.")
         return []
 
     # Build DataFrame
@@ -175,7 +181,7 @@ def calculate_and_save_daily_indices(
     # Group by date and route -> median fare
     grouped = df.groupby(["date", "route"])["total_fare"].median().unstack(level="route")
     
-    # Check seeded flags per date
+    # Seeded flags per date — with pure live mode, this will always be False
     seeded_flags = df.groupby("date")["source_type"].apply(lambda s: (s == "seeded").any()).to_dict()
     sample_sizes = df.groupby("date")["total_fare"].count().to_dict()
 

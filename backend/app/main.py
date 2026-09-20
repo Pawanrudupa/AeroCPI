@@ -449,16 +449,19 @@ def get_materiality_gap(session: Session = Depends(get_session)):
     Empirical Materiality Gap Analysis:
     Quantifies the measurement distortion of manual monthly single-point sampling
     versus AeroCPI's continuous time-weighted tracking using real captured database records.
+    Only source_type='live' quotes are used for authentic empirical analysis.
     """
     from collections import defaultdict
 
-    # Fetch all fares chronologically
+    # Fetch only LIVE fares chronologically
     fares = session.exec(
-        select(FareQuote).order_by(FareQuote.scraped_at.asc(), FareQuote.id.asc())
+        select(FareQuote)
+        .where(FareQuote.source_type == "live")
+        .order_by(FareQuote.scraped_at.asc(), FareQuote.id.asc())
     ).all()
 
     if not fares:
-        raise HTTPException(status_code=404, detail="No fare telemetry available for materiality gap analysis")
+        raise HTTPException(status_code=404, detail="No live fare telemetry available for materiality gap analysis")
 
     total_quotes = len(fares)
     live_quotes = sum(1 for f in fares if f.source_type == "live")
@@ -599,8 +602,8 @@ def get_materiality_gap(session: Session = Depends(get_session)):
             "live_pct": live_pct,
             "seeded_pct": seeded_pct,
             "disclosure": (
-                f"Preliminary baseline computed over a hybrid dataset ({live_pct}% live SerpAPI captures / "
-                f"{seeded_pct}% calibrated seeded quotes). Live fraction will expand continuously as daily automated pipelines ingest further cycles."
+                f"Analysis computed from {total_quotes} verified live market captures across {len(core_routes)} trunk routes. "
+                f"All data points are source_type='live' — no seeded or synthetic data included."
             )
         },
         "basket_summary": {
@@ -1154,7 +1157,8 @@ def stop_pipeline(
 def get_surge_status(
     session: Session = Depends(get_session)
 ):
-    """Returns current surge state for all route x window combinations."""
+    """Returns current surge state for all route x window combinations.
+    Only uses source_type='live' quotes to prevent false positives from seeded baselines."""
     routes = ["DEL-BOM", "DEL-BLR", "BOM-BLR", "DEL-CCU", "BLR-HYD", "MAA-DEL"]
     windows = ["T+7", "T+15", "T+30"]
     results = []
@@ -1163,7 +1167,11 @@ def get_surge_status(
         for window in windows:
             fares = session.exec(
                 select(FareQuote)
-                .where(FareQuote.route == route, FareQuote.window == window)
+                .where(
+                    FareQuote.route == route,
+                    FareQuote.window == window,
+                    FareQuote.source_type == "live"
+                )
                 .order_by(FareQuote.scraped_at.desc())
             ).all()
 
@@ -1197,9 +1205,10 @@ def get_elasticity_curve(
     session: Session = Depends(get_session)
 ):
     """
-    Compute basket-wide booking-window elasticity curve from real FareQuote records.
+    Compute basket-wide booking-window elasticity curve from LIVE FareQuote records.
     Returns average fare per advance-purchase window (T+7, T+15, T+30),
     normalized to an elasticity index where T+30 = 100.0.
+    Only source_type='live' quotes are used for authentic market dynamics.
     """
     windows = ["T+7", "T+15", "T+30"]
     window_order = {w: i for i, w in enumerate(windows)}
@@ -1207,6 +1216,7 @@ def get_elasticity_curve(
     fares = session.exec(
         select(FareQuote).where(
             FareQuote.observation_status == "available",
+            FareQuote.source_type == "live",
             FareQuote.window.in_(windows)
         )
     ).all()
@@ -1214,7 +1224,7 @@ def get_elasticity_curve(
     if not fares:
         return {
             "status": "insufficient_data",
-            "message": "No fare quotes available to compute elasticity curve.",
+            "message": "No live fare quotes available to compute elasticity curve.",
             "windows": []
         }
 

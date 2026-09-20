@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 
 export const HeaderActions: React.FC = () => {
   const { token, role } = useAuth();
-  const { isPipelineRunning, addPipelineEvent } = useDashboard();
+  const { isPipelineRunning } = useDashboard();
   const [isTriggering, setIsTriggering] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [selectedScope, setSelectedScope] = useState<string>("DEL-BOM:T+7");
@@ -16,10 +16,6 @@ export const HeaderActions: React.FC = () => {
   if (role !== "analyst" && role !== "admin") {
     return null;
   }
-
-  const isDev =
-    process.env.NODE_ENV !== "production" ||
-    process.env.NEXT_PUBLIC_DEV_MODE === "true";
 
   const handleTriggerPipeline = async () => {
     if (!token || isPipelineRunning || isTriggering) return;
@@ -64,26 +60,6 @@ export const HeaderActions: React.FC = () => {
 
   return (
     <div className="flex items-center gap-2 font-mono text-xs ml-2 md:ml-4 border-l border-line pl-3 md:pl-5">
-      {isDev && (
-        <button
-          onClick={() => {
-            addPipelineEvent({
-              event_type: "surge_detected",
-              message: "▲ SURGE :: DEL-BOM — 28.5% ABOVE BASELINE [DEV TEST]",
-              route: "DEL-BOM",
-              source: "dev-test",
-              window: "T+7",
-              data: { current: 7800, baseline: 6070, pct_above: "28.5" },
-              timestamp: new Date().toISOString(),
-            });
-          }}
-          className="px-2 py-1 bg-transparent border border-line text-text-dim hover:text-alert hover:border-alert transition-colors text-[10px] flex items-center gap-1"
-          title="Dev-only test trigger for SurgeToast"
-        >
-          <span>⚡</span>
-          <span className="hidden xl:inline">[DEV] TEST SURGE</span>
-        </button>
-      )}
 
       {/* Scope Selector for Cheaper Single-Route Testing */}
       {!isPipelineRunning && (

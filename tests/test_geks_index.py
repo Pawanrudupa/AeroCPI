@@ -97,7 +97,8 @@ def test_aggregation_functions():
 
 
 def test_calculate_and_save_daily_indices(session: Session):
-    """Verify persisting GEKS indices into SQLModel database (observation-date bucketing)."""
+    """Verify persisting GEKS indices into SQLModel database (observation-date bucketing).
+    With pure-live mode, only source_type='live' quotes are used for index computation."""
     import datetime as _dt
     d0 = dt.date(2026, 9, 1)
     d1 = dt.date(2026, 9, 2)
@@ -110,7 +111,10 @@ def test_calculate_and_save_daily_indices(session: Session):
         FareQuote(route="DEL-BOM", carrier="IndiGo", window="T+7", departure_date=dt.date(2026, 9, 8), total_fare=5000.0, source="indigo", source_type="live", scraped_at=scraped_d0),
         FareQuote(route="DEL-BLR", carrier="IndiGo", window="T+7", departure_date=dt.date(2026, 9, 8), total_fare=6000.0, source="indigo", source_type="live", scraped_at=scraped_d0),
         FareQuote(route="DEL-BOM", carrier="IndiGo", window="T+7", departure_date=dt.date(2026, 9, 9), total_fare=5250.0, source="indigo", source_type="live", scraped_at=scraped_d1),
+        # This seeded quote is now EXCLUDED from index computation by pure-live filter
         FareQuote(route="DEL-BLR", carrier="IndiGo", window="T+7", departure_date=dt.date(2026, 9, 9), total_fare=6300.0, source="indigo", source_type="seeded", scraped_at=scraped_d1),
+        # Add a live DEL-BLR quote on d1 so the index can still compute bilateral ratios
+        FareQuote(route="DEL-BLR", carrier="IndiGo", window="T+7", departure_date=dt.date(2026, 9, 9), total_fare=6300.0, source="indigo", source_type="live", scraped_at=scraped_d1),
     ]
     for q in quotes:
         session.add(q)
@@ -123,9 +127,9 @@ def test_calculate_and_save_daily_indices(session: Session):
     db_daily = session.exec(select(IndexDaily).order_by(IndexDaily.date)).all()
     assert len(db_daily) == 2
     assert db_daily[0].index_value == 100.0
-    assert db_daily[1].index_value == 105.0  # +5%
+    assert db_daily[1].index_value == 105.0  # +5% on both routes
     assert db_daily[0].has_seeded_data is False
-    assert db_daily[1].has_seeded_data is True  # d1 included one seeded quote
+    assert db_daily[1].has_seeded_data is False  # Pure live mode: seeded quote excluded
 
     db_routes = session.exec(select(IndexRoute)).all()
     assert len(db_routes) > 0
