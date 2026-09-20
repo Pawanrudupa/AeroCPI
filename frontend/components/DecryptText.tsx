@@ -10,6 +10,7 @@ interface DecryptTextProps {
   durationFrames?: number;
   frameSpeedMs?: number;
   triggerOnHover?: boolean;
+  triggerOnMount?: boolean;
   as?: "h1" | "h2" | "h3" | "span" | "div";
   scrambleTrigger?: number;
 }
@@ -20,13 +21,9 @@ interface DecryptTextProps {
  * Cycles through glyph set (# + & * ~ / $ % 0 1) before locking
  * characters left-to-right into the final text.
  *
- * - Triggers ONCE on page load (guaranteed — not dependent on hover).
- * - Re-triggers on hover if triggerOnHover is true.
+ * - triggerOnMount (default true): visibly scrambles on mount then resolves.
+ * - triggerOnHover (default true): re-triggers the cyber scramble when hovered.
  * - Resolves instantly under prefers-reduced-motion.
- *
- * How to observe:
- *   On page load the headline visibly scrambles for ~700ms then resolves.
- *   Hover the text to re-trigger the scramble.
  */
 export const DecryptText: React.FC<DecryptTextProps> = ({
   text,
@@ -34,18 +31,22 @@ export const DecryptText: React.FC<DecryptTextProps> = ({
   durationFrames = 20,
   frameSpeedMs = 35,
   triggerOnHover = true,
+  triggerOnMount = true,
   as: Component = "span",
   scrambleTrigger = 0,
 }) => {
-  /* Start with scrambled glyphs so the first frame is visibly scrambled */
-  const scrambledInitial = text
-    .split("")
-    .map((ch) =>
-      ch === " " ? " " : GLYPHS[Math.floor(Math.random() * GLYPHS.length)],
-    )
-    .join("");
+  /* Generate initial scrambled glyphs only if triggerOnMount is true */
+  const getScrambled = () =>
+    text
+      .split("")
+      .map((ch) =>
+        ch === " " || ch === "\n" ? ch : GLYPHS[Math.floor(Math.random() * GLYPHS.length)],
+      )
+      .join("");
 
-  const [displayText, setDisplayText] = useState(scrambledInitial);
+  const [displayText, setDisplayText] = useState(() =>
+    triggerOnMount ? getScrambled() : text,
+  );
   const [isScrambling, setIsScrambling] = useState(false);
   const hasRunOnLoadRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -66,6 +67,16 @@ export const DecryptText: React.FC<DecryptTextProps> = ({
     }
 
     setIsScrambling(true);
+
+    /* Immediately show fully scrambled glyphs on the very first instant (Image 4 effect) */
+    const initialScramble = text
+      .split("")
+      .map((ch) =>
+        ch === " " || ch === "\n" ? ch : GLYPHS[Math.floor(Math.random() * GLYPHS.length)],
+      )
+      .join("");
+    setDisplayText(initialScramble);
+
     let frame = 0;
 
     intervalRef.current = setInterval(() => {
@@ -93,9 +104,9 @@ export const DecryptText: React.FC<DecryptTextProps> = ({
     }, frameSpeedMs);
   }, [text, durationFrames, frameSpeedMs]);
 
-  /* Fire exactly once on mount — guarded by ref so React strict mode
-     double-invocation doesn't cause a visible double-scramble */
+  /* Fire on mount only if triggerOnMount is true */
   useEffect(() => {
+    if (!triggerOnMount) return;
     if (hasRunOnLoadRef.current) return;
     hasRunOnLoadRef.current = true;
 
@@ -108,8 +119,7 @@ export const DecryptText: React.FC<DecryptTextProps> = ({
       clearTimeout(timer);
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [triggerOnMount, startScramble]);
 
   /* Allow parent to trigger scramble by incrementing a counter */
   useEffect(() => {
@@ -119,7 +129,7 @@ export const DecryptText: React.FC<DecryptTextProps> = ({
   }, [scrambleTrigger, startScramble, isScrambling]);
 
   const handleMouseEnter = () => {
-    if (triggerOnHover && !isScrambling) {
+    if (triggerOnHover) {
       startScramble();
     }
   };

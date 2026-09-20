@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { api, type MaterialityGapResponse } from "@/lib/api";
+import { DecryptText } from "@/components/DecryptText";
 
 interface MaterialityGapProps {
   /** Optional title override */
@@ -75,8 +76,14 @@ export function MaterialityGapSection({ title, variant = "full" }: MaterialityGa
             <span className="text-text-dim">/ {provenance.seeded_pct}% SEEDED</span>
           </span>
         </div>
-        <h3 className="text-xl md:text-2xl font-bold text-text-primary">
-          {title || "Quantifying the Distortion: Monthly Sampling vs. Continuous Tracking"}
+        <h3 className="text-xl md:text-2xl font-bold font-mono text-text-primary tracking-tight cursor-pointer hover:text-accent-amber transition-colors">
+          <DecryptText
+            text={title || "Quantifying the Distortion: Monthly Sampling vs. Continuous Tracking"}
+            triggerOnHover={true}
+            triggerOnMount={false}
+            durationFrames={26}
+            frameSpeedMs={25}
+          />
         </h3>
         <p className="text-xs md:text-sm text-text-dim leading-relaxed font-sans max-w-3xl">
           Using real captured database telemetry ({provenance.total_quotes.toLocaleString()} quotes across the 6 core trunk routes),

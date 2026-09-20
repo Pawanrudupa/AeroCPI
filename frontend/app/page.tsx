@@ -163,8 +163,14 @@ export default function LandingPage() {
               <span className="font-mono text-xs text-accent-amber">
                 [ CONTEXT :: THE PROBLEM ]
               </span>
-              <h2 className="text-2xl md:text-3xl font-bold text-text-primary">
-                Why India Needs a Better Airfare Price Index
+              <h2 className="text-2xl md:text-3xl font-bold font-mono text-text-primary tracking-tight cursor-pointer hover:text-accent-amber transition-colors">
+                <DecryptText
+                  text="Why India Needs a Better Airfare Price Index"
+                  triggerOnHover={true}
+                  triggerOnMount={false}
+                  durationFrames={22}
+                  frameSpeedMs={28}
+                />
               </h2>
             </div>
 
@@ -283,8 +289,14 @@ export default function LandingPage() {
               <span className="font-mono text-xs text-accent-amber">
                 [ ARCHITECTURE :: DATA PIPELINE ]
               </span>
-              <h2 className="text-2xl md:text-3xl font-bold text-text-primary">
-                From Raw Web Scrape to Published Index
+              <h2 className="text-2xl md:text-3xl font-bold font-mono text-text-primary tracking-tight cursor-pointer hover:text-accent-amber transition-colors">
+                <DecryptText
+                  text="From Raw Web Scrape to Published Index"
+                  triggerOnHover={true}
+                  triggerOnMount={false}
+                  durationFrames={22}
+                  frameSpeedMs={28}
+                />
               </h2>
             </div>
 
@@ -346,7 +358,15 @@ export default function LandingPage() {
             {/* Who it's For */}
             <div className="space-y-6">
               <span className="font-mono text-xs text-accent-amber">[ TARGET AUDIENCE ]</span>
-              <h3 className="text-xl font-bold text-text-primary">Who benefits from AeroCPI?</h3>
+              <h3 className="text-xl font-bold font-mono text-text-primary tracking-tight cursor-pointer hover:text-accent-amber transition-colors">
+                <DecryptText
+                  text="Who benefits from AeroCPI?"
+                  triggerOnHover={true}
+                  triggerOnMount={false}
+                  durationFrames={18}
+                  frameSpeedMs={28}
+                />
+              </h3>
               <div className="space-y-4">
                 <div className="border-l-2 border-accent-amber pl-4">
                   <h4 className="font-mono text-xs text-text-primary mb-1">NSO & MoSPI</h4>
@@ -367,7 +387,15 @@ export default function LandingPage() {
             <div className="space-y-8">
               <div className="space-y-4">
                 <span className="font-mono text-xs text-signal-green">[ SYSTEM ACCESS ]</span>
-                <h3 className="text-xl font-bold text-text-primary">API & Data Access</h3>
+                <h3 className="text-xl font-bold font-mono text-text-primary tracking-tight cursor-pointer hover:text-accent-amber transition-colors">
+                  <DecryptText
+                    text="API & Data Access"
+                    triggerOnHover={true}
+                    triggerOnMount={false}
+                    durationFrames={18}
+                    frameSpeedMs={28}
+                  />
+                </h3>
                 <p className="text-sm text-text-dim leading-relaxed">
                   The AeroCPI backend provides a RESTful API built on FastAPI. Most endpoints, including raw fare exports and historical index data, require authentication via JWT. 
                   View the <Link href="/docs" className="text-accent-amber underline decoration-dashed underline-offset-4 hover:text-text-primary transition-colors">OpenAPI / Swagger Documentation</Link> for details.
@@ -376,7 +404,15 @@ export default function LandingPage() {
               
               <div className="space-y-4">
                 <span className="font-mono text-xs text-accent-amber">[ ROADMAP ]</span>
-                <h3 className="text-xl font-bold text-text-primary">What&apos;s Next</h3>
+                <h3 className="text-xl font-bold font-mono text-text-primary tracking-tight cursor-pointer hover:text-accent-amber transition-colors">
+                  <DecryptText
+                    text="What's Next"
+                    triggerOnHover={true}
+                    triggerOnMount={false}
+                    durationFrames={16}
+                    frameSpeedMs={28}
+                  />
+                </h3>
                 <ul className="list-disc list-inside text-sm text-text-dim space-y-2">
                   <li>Expanding coverage to 20+ Tier 2/3 city pairs.</li>
                   <li>Full deployment of live scraping engine without synthetic fallback.</li>
