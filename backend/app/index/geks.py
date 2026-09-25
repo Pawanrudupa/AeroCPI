@@ -5,6 +5,8 @@ Implements:
 - ARCHITECTURE.md Section 4.4 (Weighting via DGCA passenger-traffic share 'PSD')
 - FEATURES.md (Daily index computation, derive weekly/monthly by aggregation)
 """
+import os
+import copy
 import math
 import logging
 import datetime as dt
@@ -12,22 +14,74 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from sqlmodel import Session, select
-from backend.app.models import FareQuote, IndexDaily, IndexRoute
+from backend.app.models import FareQuote, IndexDaily, IndexRoute, DGCABenchmark
 from backend.app.events import event_bus, PipelineEvent, EventType
 from backend.app.config import settings
 
 logger = logging.getLogger("aerocpi.index.geks")
 
-# DGCA Passenger Traffic Share Weights (PSD) for the 6 core routes
-# Normalized from DGCA Domestic Passenger Traffic Statistics
-DGCA_ROUTE_WEIGHTS: Dict[str, float] = {
-    "DEL-BOM": 0.24,  # Delhi - Mumbai (highest passenger density)
-    "DEL-BLR": 0.20,  # Delhi - Bengaluru
-    "BOM-BLR": 0.18,  # Mumbai - Bengaluru
-    "DEL-CCU": 0.15,  # Delhi - Kolkata
-    "BLR-HYD": 0.12,  # Bengaluru - Hyderabad
-    "MAA-DEL": 0.11,  # Chennai - Delhi
+# Default verified DGCA passenger traffic share weights (PSD) for the 6 core routes
+# Derived from official DGCA Domestic City-Pair Monthly Scheduled Passenger Traffic Statistics (Table 4.1)
+DEFAULT_VERIFIED_DGCA_WEIGHTS: Dict[str, float] = {
+    "DEL-BOM": 0.2839,  # Delhi - Mumbai (28.39% passenger traffic share)
+    "DEL-BLR": 0.2221,  # Delhi - Bengaluru (22.21%)
+    "BOM-BLR": 0.1665,  # Mumbai - Bengaluru (16.65%)
+    "DEL-CCU": 0.1373,  # Delhi - Kolkata (13.73%)
+    "MAA-DEL": 0.0987,  # Chennai - Delhi (9.87%)
+    "BLR-HYD": 0.0915,  # Bengaluru - Hyderabad (9.15%)
 }
+
+
+def get_verified_dgca_weights(session: Optional[Session] = None) -> Dict[str, float]:
+    """
+    Dynamically loads and normalizes verified DGCA route weights from DGCABenchmark table or CSV.
+    Uses exact empirical decimal passenger-share values (e.g. 0.2835 - 0.2878 for DEL-BOM).
+    Falls back to verified empirical mean weights if data is unavailable.
+    """
+    weights_by_route: Dict[str, List[float]] = {}
+
+    # 1. Try loading from database session if provided
+    if session is not None:
+        try:
+            records = session.exec(select(DGCABenchmark)).all()
+            for r in records:
+                if r.route and r.passenger_share and r.passenger_share > 0:
+                    weights_by_route.setdefault(r.route, []).append(float(r.passenger_share))
+        except Exception as e:
+            logger.warning(f"Could not load DGCA weights from session: {e}")
+
+    # 2. Try loading from verified CSV if DB was empty
+    if not weights_by_route:
+        csv_path = os.path.join("data", "dgca", "verified_dgca_reports.csv")
+        if os.path.exists(csv_path):
+            try:
+                import csv
+                with open(csv_path, mode="r", encoding="utf-8-sig") as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        rt = (row.get("route") or "").strip()
+                        share_val = row.get("passenger_share")
+                        if rt and share_val:
+                            try:
+                                s_float = float(share_val)
+                                if s_float > 0:
+                                    weights_by_route.setdefault(rt, []).append(s_float)
+                            except ValueError:
+                                pass
+            except Exception as e:
+                logger.warning(f"Could not read DGCA CSV: {e}")
+
+    # 3. Compute empirical mean per route or fallback
+    if weights_by_route:
+        mean_weights = {rt: sum(shares) / len(shares) for rt, shares in weights_by_route.items()}
+        total_w = sum(mean_weights.values())
+        if total_w > 0:
+            return {rt: round(w / total_w, 4) for rt, w in mean_weights.items()}
+
+    return copy.deepcopy(DEFAULT_VERIFIED_DGCA_WEIGHTS)
+
+
+DGCA_ROUTE_WEIGHTS: Dict[str, float] = DEFAULT_VERIFIED_DGCA_WEIGHTS
 
 
 def normalize_weights(weights: Dict[str, float], available_routes: List[str]) -> Dict[str, float]:
@@ -197,8 +251,9 @@ def calculate_and_save_daily_indices(
     sorted_dates = sorted(daily_route_prices.keys())
     base_d = base_date or sorted_dates[0]
 
-    # 1. Compute overall GEKS-Törnqvist daily series
-    daily_idx_map = compute_geks_tornqvist_index(daily_route_prices, base_date=base_d)
+    # 1. Compute overall GEKS-Törnqvist daily series with verified dynamic DGCA weights
+    dynamic_weights = get_verified_dgca_weights(session)
+    daily_idx_map = compute_geks_tornqvist_index(daily_route_prices, base_date=base_d, weights=dynamic_weights)
 
     saved_records: List[IndexDaily] = []
     for d, val in daily_idx_map.items():

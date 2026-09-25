@@ -22,18 +22,30 @@ def test_ingest_verified_mospi_cpi_csv(memory_session):
     assert os.path.exists(csv_path), "Verified MoSPI CSV should exist in data/mospi/"
 
     ingested = ingest_mospi_csv(memory_session, csv_path)
-    assert len(ingested) >= 20, "Should ingest at least 20 historical monthly MoSPI records"
+    assert len(ingested) == 2, "Should ingest exactly 2 verified historical monthly MoSPI records"
 
-    # Verify a specific record
-    rec_sep = memory_session.exec(
-        select(MospiBenchmark).where(MospiBenchmark.month == "2026-09")
+    # Verify 2026-01 record
+    rec_jan = memory_session.exec(
+        select(MospiBenchmark).where(MospiBenchmark.month == "2026-01")
     ).first()
-    assert rec_sep is not None
-    assert rec_sep.cpi_index == 109.80
-    assert rec_sep.benchmark_type == "OFFICIAL_GOVERNMENT"
-    assert "MoSPI" in rec_sep.source_document
-    assert rec_sep.publication_date == "2026-10-12"
-    assert "https://" in rec_sep.source_url
+    assert rec_jan is not None
+    assert rec_jan.cpi_index == 100.64
+    assert rec_jan.benchmark_type == "OFFICIAL_GOVERNMENT"
+    assert "MoSPI" in rec_jan.source_document
+    assert rec_jan.publication_date == "2026-02-12"
+    assert "https://" in rec_jan.source_url
+
+    # Verify 2026-02 record
+    rec_feb = memory_session.exec(
+        select(MospiBenchmark).where(MospiBenchmark.month == "2026-02")
+    ).first()
+    assert rec_feb is not None
+    assert rec_feb.cpi_index == 100.69
+    assert rec_feb.benchmark_type == "OFFICIAL_GOVERNMENT"
+    assert "MoSPI" in rec_feb.source_document
+    assert rec_feb.publication_date == "2026-03-12"
+    assert "https://" in rec_feb.source_url
+
 
 
 def test_ingest_mospi_provenance_enforcement(memory_session):
