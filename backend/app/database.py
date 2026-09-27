@@ -57,11 +57,19 @@ def migrate_user_columns(custom_engine=None):
 
 
 def create_db_and_tables(custom_engine=None):
-    """Create all SQLModel tables in the database and apply incremental column migrations."""
+    """Create all SQLModel tables in the database, apply incremental column migrations, and ensure indexes."""
     target_engine = custom_engine or engine
     SQLModel.metadata.create_all(target_engine)
     migrate_user_columns(target_engine)
     migrate_fares_columns(target_engine)
+    # Ensure all declared indexes (including newly added compound indexes) exist on tables
+    for table in SQLModel.metadata.tables.values():
+        for index in table.indexes:
+            try:
+                index.create(bind=target_engine, checkfirst=True)
+            except Exception:
+                pass
+
 
 
 def migrate_fares_columns(custom_engine=None):

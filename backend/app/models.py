@@ -9,6 +9,7 @@ Implements:
 """
 import datetime as dt
 from typing import Optional, List
+from sqlalchemy import Index
 from sqlmodel import SQLModel, Field, Relationship
 
 
@@ -100,6 +101,11 @@ class RawSnapshot(SQLModel, table=True):
     # Relationship to structured quotes
     quotes: List["FareQuote"] = Relationship(back_populates="raw_snapshot")
 
+    __table_args__ = (
+        Index("ix_snapshots_route_window_source", "route", "window", "source_type"),
+        Index("ix_snapshots_source_time", "source", "scrape_timestamp"),
+    )
+
 
 class FareQuote(SQLModel, table=True):
     """
@@ -139,6 +145,13 @@ class FareQuote(SQLModel, table=True):
     raw_snapshot_id: Optional[int] = Field(default=None, foreign_key="raw_snapshots.id")
     raw_snapshot: Optional[RawSnapshot] = Relationship(back_populates="quotes")
 
+    __table_args__ = (
+        Index("ix_fares_route_window_source", "route", "window", "source_type"),
+        Index("ix_fares_status_source_scraped", "observation_status", "source_type", "scraped_at"),
+        Index("ix_fares_carrier_route_source", "carrier", "route", "source_type"),
+        Index("ix_fares_scraped_source", "scraped_at", "source_type"),
+    )
+
 
 class IndexDaily(SQLModel, table=True):
     """
@@ -172,6 +185,10 @@ class IndexRoute(SQLModel, table=True):
     sample_size: int = Field(default=0)
     has_seeded_data: bool = Field(default=False)
 
+    __table_args__ = (
+        Index("ix_index_route_date_route", "route", "date"),
+    )
+
 
 class DGCABenchmark(SQLModel, table=True):
     """
@@ -193,6 +210,10 @@ class DGCABenchmark(SQLModel, table=True):
     source_document: str = Field(nullable=False)  # e.g. 'DGCA Monthly Air Transport Report - Table 4.1'
     publication_date: str = Field(nullable=False)  # e.g. '2026-08-25'
     source_url: Optional[str] = None  # e.g. 'https://dgca.gov.in'
+
+    __table_args__ = (
+        Index("ix_dgca_route_month", "route", "month"),
+    )
 
 
 class MospiBenchmark(SQLModel, table=True):
