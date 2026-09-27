@@ -38,6 +38,10 @@ class MakeMyTripScraper(BaseScraper):
         
         search_url = f"https://www.makemytrip.com/flight/search?itinerary={origin}-{destination}-{date_str}&tripType=O&paxType=A-1_C-0_I-0&intl=false&cabinClass=E"
 
+        if not self.is_playwright_enabled():
+            logger.info(f"[{self.source_name.upper()}] Playwright disabled (low-memory / cloud environment). Using seeded fallback.")
+            return self.get_disabled_playwright_result(route, window, departure_date)
+
         try:
             self.polite_delay(0.5, 1.5)
             with httpx.Client(timeout=8.0, follow_redirects=True) as client:

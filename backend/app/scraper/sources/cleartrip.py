@@ -38,6 +38,10 @@ class CleartripScraper(BaseScraper):
         
         search_url = f"https://www.cleartrip.com/flights/results?from={origin}&to={destination}&depart_date={date_str}&adults=1&childs=0&infants=0&class=Economy"
 
+        if not self.is_playwright_enabled():
+            logger.info(f"[{self.source_name.upper()}] Playwright disabled (low-memory / cloud environment). Using seeded fallback.")
+            return self.get_disabled_playwright_result(route, window, departure_date)
+
         try:
             self.polite_delay(0.5, 1.5)
             with httpx.Client(timeout=8.0, follow_redirects=True) as client:

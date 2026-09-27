@@ -38,6 +38,10 @@ class EaseMyTripScraper(BaseScraper):
         date_str = departure_date.strftime("%d/%m/%Y")
         
         search_url = f"https://flight.easemytrip.com/FlightList/Index?srch={origin}-{destination}-{date_str}"
+
+        if not self.is_playwright_enabled():
+            logger.info(f"[{self.source_name.upper()}] Playwright disabled (low-memory / cloud environment). Using seeded fallback.")
+            return self.get_disabled_playwright_result(route, window, departure_date)
         content = ""
 
         try:

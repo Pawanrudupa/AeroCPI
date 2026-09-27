@@ -1,0 +1,49 @@
+name: AeroCPI Daily Scraper & Index Update
+
+on:
+  schedule:
+    # Runs daily at 02:00 UTC (07:30 IST)
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      limit_sources:
+        description: 'Limit to fast demonstration sources'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  trigger-pipeline:
+    name: Trigger Production Airfare Sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Pipeline via API
+        env:
+          API_URL: ${{ secrets.AEROCPI_API_URL }}
+          API_KEY: ${{ secrets.AEROCPI_API_KEY }}
+          LIMIT_SOURCES: ${{ github.event.inputs.limit_sources || 'false' }}
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$API_KEY" ]; then
+            echo "::warning ::AEROCPI_API_URL or AEROCPI_API_KEY secret not configured. Skipping automated trigger."
+            exit 0
+          fi
+          
+          ENDPOINT="${API_URL%/}/pipeline/trigger-sync?limit_sources=${LIMIT_SOURCES}"
+          echo "Triggering pipeline at: ${ENDPOINT}"
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${ENDPOINT}" \
+            -H "X-API-Key: ${API_KEY}" \
+            -H "Content-Type: application/json")
+          
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n 1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "HTTP Status: $HTTP_STATUS"
+          echo "Response Body: $BODY"
+          
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+            echo "Pipeline sync triggered and completed successfully!"
+          else
+            echo "::error ::Pipeline trigger failed with status $HTTP_STATUS"
+            exit 1
+          fi

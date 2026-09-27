@@ -3,8 +3,9 @@
  * All gated endpoints require a valid JWT Bearer token.
  */
 
-export const API_BASE =
+const rawApiUrl =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export const API_BASE = rawApiUrl.replace(/\/+$/, "");
 
 /* ------------------------------------------------------------------ */
 /*  Generic fetch helper                                               */

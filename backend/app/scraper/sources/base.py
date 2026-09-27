@@ -88,6 +88,31 @@ class BaseScraper(abc.ABC):
         """Inject randomized delays to comply with ethical scraping limits."""
         time.sleep(random.uniform(min_seconds, max_seconds))
 
+    def is_playwright_enabled(self) -> bool:
+        """Check if headless browser scraping is permitted in the current environment."""
+        from backend.app.config import settings
+        return getattr(settings, "ENABLE_PLAYWRIGHT", True)
+
+    def get_disabled_playwright_result(
+        self,
+        route: str,
+        window: str,
+        departure_date: dt.date
+    ) -> ScrapeResult:
+        """Return cached seeded fallback snapshot when headless browser execution is disabled."""
+        from backend.app.scraper.seed_data import get_seeded_snapshot
+        seeded_data = get_seeded_snapshot(route, window, source=self.source_name)
+        return ScrapeResult(
+            source=self.source_name,
+            route=route,
+            window=window,
+            departure_date=departure_date,
+            raw_payload={"fallback_reason": "playwright_disabled_by_config", "cached_flights": seeded_data},
+            parsed_quotes=seeded_data,
+            source_type="seeded",
+            status="playwright_disabled"
+        )
+
     @abc.abstractmethod
     def fetch_quotes(
         self,

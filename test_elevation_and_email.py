@@ -36,8 +36,10 @@ def test_elevation_and_email():
     print("AeroCPI Elevation Request & Email Notification Test Suite")
     print("=========================================================\n")
 
-    # Clear email log for clean testing
+    # Clear email log and avoid network SMTP delay during test
     SENT_EMAILS_LOG.clear()
+    original_smtp_host = settings.SMTP_HOST
+    settings.SMTP_HOST = None
 
     # Step 1: Login as Admin
     print("--- [1] Authenticating Institutional Administrator ---")
@@ -251,8 +253,8 @@ def test_elevation_and_email():
 
     # Step 12: VIEWER Privilege Escalation Guard on Pipeline Trigger Endpoints
     print("\n--- [12] Testing VIEWER Privilege Escalation Guard on Pipeline Endpoints ---")
-    viewer_token = register_resp.json()["access_token"]
-    v_headers = {"Authorization": f"Bearer {viewer_token}"}
+    # Use token2 (the applicant whose elevation request was rejected and remains a VIEWER)
+    v_headers = {"Authorization": f"Bearer {token2}"}
     
     pipe_sync_resp = client.post("/pipeline/trigger-sync?limit_sources=true", headers=v_headers)
     assert pipe_sync_resp.status_code == 403, f"Expected 403, got {pipe_sync_resp.status_code}: {pipe_sync_resp.text}"
@@ -287,7 +289,8 @@ def test_elevation_and_email():
     analyst_key_resp = client.post("/account/api-key", headers=e_headers)
     assert analyst_key_resp.status_code == 200, f"Expected 200, got {analyst_key_resp.status_code}: {analyst_key_resp.text}"
     assert "aero_live_" in analyst_key_resp.json()["api_key"]
-    print(f"[PASS] Approved ANALYST successfully generated API key ({analyst_key_resp.json()['prefix']})")
+    # Restore original settings
+    settings.SMTP_HOST = original_smtp_host
 
     print("\n=========================================================")
     print("ALL ELEVATION, EMAIL, & PRIVILEGE GUARD TESTS PASSED (14/14)!")

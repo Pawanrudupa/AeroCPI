@@ -3,12 +3,23 @@ AeroCPI Configuration Module.
 Implements ARCHITECTURE.md Section 2 (Tech stack) & User specifications.
 """
 from typing import Optional
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "sqlite:///./aerocpi.db"
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def normalize_database_url(cls, v: str) -> str:
+        if isinstance(v, str) and v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql://", 1)
+        return v
+    
+    # Headless Browser Control (set to False on low-memory PaaS e.g. Render 512MB free tier)
+    ENABLE_PLAYWRIGHT: bool = True
     
     # JWT Authentication (PyJWT)
     JWT_SECRET: str = "default-dev-secret-key-change-in-production-2026"

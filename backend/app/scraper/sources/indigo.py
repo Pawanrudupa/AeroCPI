@@ -34,6 +34,10 @@ class IndiGoScraper(BaseScraper):
         # We target the live search page UI flow instead of the stale API endpoint.
         search_url = f"https://www.goindigo.in/flight-booking.html?origin={origin}&destination={destination}&date={date_str}"
         
+        if not self.is_playwright_enabled():
+            logger.info(f"[{self.source_name.upper()}] Playwright disabled (low-memory / cloud environment). Using seeded fallback.")
+            return self.get_disabled_playwright_result(route, window, departure_date)
+
         content = ""
         try:
             self.polite_delay(0.5, 1.5)

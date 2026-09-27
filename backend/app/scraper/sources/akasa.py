@@ -36,8 +36,12 @@ class AkasaScraper(BaseScraper):
         date_str = departure_date.strftime("%Y-%m-%d")
         
         search_url = f"https://www.akasaair.com/search-flights?origin={origin}&destination={destination}&date={date_str}"
-        content = ""
+        
+        if not self.is_playwright_enabled():
+            logger.info(f"[{self.source_name.upper()}] Playwright disabled (low-memory / cloud environment). Using seeded fallback.")
+            return self.get_disabled_playwright_result(route, window, departure_date)
 
+        content = ""
         try:
             self.polite_delay(0.5, 1.5)
             
