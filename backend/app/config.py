@@ -51,6 +51,15 @@ class Settings(BaseSettings):
     SMTP_USE_TLS: bool = True
     APP_BASE_URL: str = "http://localhost:3000"
 
+    # CORS Origins (Comma-separated string in env, defaults to "*" in dev)
+    CORS_ORIGINS: str = "*"
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        if not self.CORS_ORIGINS or self.CORS_ORIGINS.strip() == "*":
+            return ["*"]
+        return [orig.strip() for orig in self.CORS_ORIGINS.split(",") if orig.strip()]
+
     @property
     def serpapi_key(self) -> Optional[str]:
         return self.SERPAPI_API_KEY or self.SERPAPI

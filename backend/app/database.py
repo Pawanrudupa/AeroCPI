@@ -31,6 +31,8 @@ engine = create_engine(
 def migrate_user_columns(custom_engine=None):
     """Ensure newly added columns exist in users table for SQLite without dropping data."""
     target_engine = custom_engine or engine
+    if target_engine.dialect.name != "sqlite":
+        return
     from sqlalchemy import text
     with target_engine.connect() as conn:
         # Check existing columns in users table
@@ -75,6 +77,8 @@ def create_db_and_tables(custom_engine=None):
 def migrate_fares_columns(custom_engine=None):
     """Ensure newly added columns exist in fares table for SQLite without dropping data."""
     target_engine = custom_engine or engine
+    if target_engine.dialect.name != "sqlite":
+        return
     from sqlalchemy import text
     with target_engine.connect() as conn:
         try:
