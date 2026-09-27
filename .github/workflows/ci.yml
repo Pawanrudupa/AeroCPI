@@ -40,11 +40,12 @@ jobs:
       - name: Run Pytest Test Suite
         env:
           DATABASE_URL: sqlite:///./test_aerocpi.db
-          JWT_SECRET: ci_test_secret_key_2026_aerocpi
+          JWT_SECRET: ci_test_secret_key_2026_aerocpi_secure_sha256_key
           JWT_ALGORITHM: HS256
           ACCESS_TOKEN_EXPIRE_MINUTES: 1440
           SEED_ANALYST_EMAIL: demo.analyst@aerocpi.local
           SEED_ANALYST_PASSWORD: TestPassword#2026
+          SERPAPI_API_KEY: ci_mock_serpapi_key_test_2026
           PYTHONPATH: .
         run: |
           python -m pytest tests/ -v

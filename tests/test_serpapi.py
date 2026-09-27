@@ -13,6 +13,13 @@ from backend.app.scraper.sources.serpapi import (
     parse_serpapi_flight_items
 )
 from backend.app.scraper.engine import run_pipeline_for_route
+from backend.app.config import settings
+
+
+@pytest.fixture(autouse=True)
+def mock_serpapi_key(monkeypatch):
+    """Ensure test suite has a mock SerpAPI key so it never falls back to seeded data due to missing environment key."""
+    monkeypatch.setattr(settings, "SERPAPI_API_KEY", "ci_mock_serpapi_key_test_2026")
 
 
 MOCK_SERPAPI_PAYLOAD = {
