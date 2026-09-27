@@ -1,0 +1,54 @@
+version: "1"
+
+databases:
+  - name: aerocpi-db
+    databaseName: aerocpi_db
+    user: aerocpi_user
+    plan: free
+    region: oregon
+
+services:
+  - type: web
+    name: aerocpi-api
+    runtime: python
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PYTHONPATH
+        value: .
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aerocpi-db
+          property: connectionString
+      - key: ENABLE_PLAYWRIGHT
+        value: "false"
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "1440"
+      - key: SEED_ADMIN_EMAIL
+        value: admin@aerocpi.local
+      - key: BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
+      - key: SEED_ANALYST_EMAIL
+        value: demo.analyst@aerocpi.local
+      - key: SEED_ANALYST_PASSWORD
+        sync: false
+      - key: SERPAPI_API_KEY
+        sync: false
+      - key: SURGE_THRESHOLD_PCT
+        value: "20.0"
+      - key: ADMIN_NOTIFICATION_EMAIL
+        sync: false
+      - key: APP_BASE_URL
+        value: https://aerocpi.vercel.app
