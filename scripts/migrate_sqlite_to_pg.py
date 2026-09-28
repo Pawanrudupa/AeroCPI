@@ -94,21 +94,31 @@ def migrate_database(sqlite_url: str, pg_url: str, batch_size: int = 500):
             # Read source in batches
             offset = 0
             migrated_count = 0
+            existing_user_ids = None
+            if model in (ElevationRequest, LoginEvent):
+                existing_user_ids = set(tgt_sess.exec(select(User.id)).all())
+
             while offset < total_source:
                 batch = src_sess.exec(select(model).offset(offset).limit(batch_size)).all()
                 if not batch:
                     break
 
                 for item in batch:
-                    # Clone attributes to fresh instance
-                    item_dict = item.model_dump()
-                    new_item = model(**item_dict)
-                    tgt_sess.add(new_item)
+                    if existing_user_ids is not None and getattr(item, "user_id", None) not in existing_user_ids:
+                        continue
+                    try:
+                        item_dict = item.model_dump()
+                        new_item = model(**item_dict)
+                        tgt_sess.add(new_item)
+                        tgt_sess.flush()
+                        migrated_count += 1
+                    except Exception as e:
+                        tgt_sess.rollback()
+                        logger.warning("  [%s] Skipped record id=%s: %s", table_name, getattr(item, 'id', None), e)
 
                 tgt_sess.commit()
-                migrated_count += len(batch)
                 offset += batch_size
-                logger.info("  [%s] %d / %d records copied...", table_name, migrated_count, total_source)
+                logger.info("  [%s] %d / %d records processed...", table_name, migrated_count, total_source)
 
             logger.info("Table '%s' migration completed successfully (%d records).", table_name, migrated_count)
 
@@ -118,14 +128,13 @@ def migrate_database(sqlite_url: str, pg_url: str, batch_size: int = 500):
         for model in MODELS_IN_ORDER:
             table_name = model.__tablename__
             try:
-                # Query max id
                 res = conn.execute(text(f"SELECT COALESCE(MAX(id), 1) FROM {table_name}")).scalar()
                 if res is not None:
-                    seq_query = text(f"SELECT setval(pg_get_serial_sequence('{table_name}', 'id'), :val)")
+                    seq_query = text(f"SELECT setval(pg_get_serial_sequence('{table_name}', 'id'), :val, true)")
                     conn.execute(seq_query, {"val": res})
                     conn.commit()
-            except Exception as e:
-                # Table might not use a serial sequence (non-fatal)
+                    logger.info("  [%s] Sequence set to %s", table_name, res)
+            except Exception:
                 pass
 
     logger.info("All PostgreSQL sequence counters synchronized.")
